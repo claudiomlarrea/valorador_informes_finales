@@ -1,0 +1,33 @@
+# Rúbrica Informes Finales (0–4) — sin comparación con plan original
+scale: {min: 0, max: 4}
+
+weights:
+  identificacion: 4
+  objetivos: 16
+  metodologia: 16
+  resultados: 22
+  formacion: 8
+  difusion: 10
+  transferencia: 8
+  equipo: 6
+  gestion_recursos: 4
+  calidad_formal: 4
+  impacto: 2
+
+thresholds:
+  aprobado: 60
+  aprobado_obs: 50
+
+# Palabras clave para autovaloración básica (puede editarse)
+keywords:
+  identificacion: ["unidad académica","denominación","director","equipo","resolución","código"]
+  objetivos: ["objetivo general","objetivos específicos","cumplimiento","alcanzado"]
+  metodologia: ["metodolog","diseño","muestra","instrumento","procedimiento","ética","aprobación"]
+  resultados: ["resultados","análisis","tabla","figura","estadíst","temátic","hallazgo","conclusiones"]
+  formacion: ["tesis","tesina","becario","estudiante","capacitación","formación"]
+  difusion: ["artículo","revista","congreso","ponencia","jornada","publicación","DOI","referato"]
+  transferencia: ["transferencia","manual","protocolo","software","convenio","acuerdo","implementación"]
+  equipo: ["desempeño","participación","rol","satisfactorio","regular","insatisfactorio"]
+  gestion_recursos: ["rendición","fondos","presupuesto","inventariable","adquisición"]
+  calidad_formal: ["bibliografía","referencias","APA","formato","ortografía"]
+  impacto: ["impacto","aplicación","beneficio","continuidad","nueva línea"]
