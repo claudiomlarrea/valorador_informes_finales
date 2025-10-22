@@ -105,32 +105,61 @@ def make_excel(scores: dict, final_pct: float, label: str) -> bytes:
 # -------------------------
 # Helpers Word
 # -------------------------
-def _add_full_text_as_paragraphs(doc: Document, text: str) -> None:
-    """Inserta texto completo en párrafos limpios (sin recortes)."""
+def _split_long_paragraphs(text: str, max_len: int = 2000):
+    """
+    Divide un párrafo largo en trozos <= max_len para evitar el límite de 32.767
+    caracteres por párrafo de Word.
+    """
+    text = text.strip()
+    if not text:
+        return []
+    chunks = []
+    i = 0
+    n = len(text)
+    while i < n:
+        j = min(i + max_len, n)
+        # intentar cortar en un espacio/punto cercano para no romper palabras
+        k = text.rfind(" ", i, j)
+        if k == -1 or k <= i + int(max_len*0.6):
+            k = j
+        chunks.append(text[i:k].strip())
+        i = k
+    return [c for c in chunks if c]
+
+def _add_full_text_as_paragraphs(doc: Document, text: str, max_len: int = 2000) -> None:
+    """
+    Inserta texto en párrafos. Usa doble salto como separador preferente; si no hay,
+    también acepta salto simple. Cualquier párrafo que supere max_len se trocea.
+    """
     if not text:
         return
-    blocks = re.split(r"\n{2,}", text.strip())
+    # Primero, separar por doble salto. Si no hay, usar simple.
+    if "\n\n" in text:
+        blocks = re.split(r"\n{2,}", text.strip())
+    else:
+        blocks = [b for b in text.split("\n")]
+
     for block in blocks:
-        lines = [ln.strip() for ln in block.splitlines() if ln.strip()]
-        paragraph_text = " ".join(lines)
-        if paragraph_text:
-            p = doc.add_paragraph(paragraph_text)
-            p.paragraph_format.space_after = Pt(6)
-        else:
+        block = " ".join([ln.strip() for ln in block.splitlines() if ln.strip()])
+        if not block:
             doc.add_paragraph("")
+            continue
+        for chunk in _split_long_paragraphs(block, max_len=max_len):
+            p = doc.add_paragraph(chunk)
+            p.paragraph_format.space_after = Pt(6)
 
 def _recortar_evidencia_final(raw_text: str) -> str:
     """
-    Conserva desde el encabezado del informe final hacia adelante
-    y (si aparece) se detiene en el primer separador fuerte.
+    Conserva desde el encabezado del informe final hacia adelante.
+    NO corta por separadores para evitar truncado prematuro; el troceo
+    por párrafos se encarga del límite de Word.
     """
     if not raw_text:
         return raw_text
-
-    # posibles encabezados de inicio (case-insensitive)
     inicios = [
         "INFORME FINAL",
         "INFORME FINAL DEL PROYECTO",
+        "INFORME FINAL DE INVESTIGACIÓN",
         "INFORME FINAL –",
         "INFORME FINAL:",
         # fallback por si el archivo usa el mismo encabezado que avance
@@ -138,31 +167,13 @@ def _recortar_evidencia_final(raw_text: str) -> str:
     ]
     lower = raw_text.lower()
     start_pos = -1
-    start_label = ""
     for patt in inicios:
         pos = lower.find(patt.lower())
         if pos != -1 and (start_pos == -1 or pos < start_pos):
             start_pos = pos
-            start_label = patt
     if start_pos == -1:
-        # si no se encuentra un encabezado, devolvemos todo
         return raw_text.strip()
-
-    fragment = raw_text[start_pos:]
-
-    # separadores donde conviene cortar
-    separadores = [
-        "\n___",
-        "\n—", "\n- - -", "\n***",
-        "CONCLUSIONES", "Conclusiones",
-        "ANEXOS", "Anexos",
-        "Resultados parciales", "RESULTADOS PARCIALES",  # por compatibilidad
-        "\nII.-", "\nII .-", "\nII -", "\n\nII"
-    ]
-    cortes = [fragment.find(s) for s in separadores if fragment.find(s) != -1]
-    stop = min(cortes) if cortes else -1
-    fragmento = fragment[:stop].strip() if stop != -1 else fragment.strip()
-    return fragmento
+    return raw_text[start_pos:].strip()
 
 # -------------------------
 # Generación de Word
@@ -176,7 +187,7 @@ def make_word(scores: dict, final_pct: float, label: str, raw_text: str) -> byte
     styles.font.name = 'Times New Roman'
     styles.font.size = Pt(11)
 
-    # Márgenes más amplios (más área útil)
+    # Márgenes (más área útil)
     for section in doc.sections:
         section.top_margin = Cm(2.0)
         section.bottom_margin = Cm(2.0)
@@ -210,11 +221,9 @@ def make_word(scores: dict, final_pct: float, label: str, raw_text: str) -> byte
     doc.add_paragraph("")
     doc.add_heading('Evidencia analizada (texto completo)', level=2)
 
-    # --- Recorte inteligente para informes finales ---
+    # Evidencia: desde el encabezado del informe final y con troceo seguro
     evidencia = _recortar_evidencia_final(raw_text)
-
-    # Agregar texto (sin “…” y sin límite de caracteres)
-    _add_full_text_as_paragraphs(doc, evidencia)
+    _add_full_text_as_paragraphs(doc, evidencia, max_len=2000)
 
     with io.BytesIO() as buffer:
         doc.save(buffer)
@@ -237,7 +246,6 @@ if uploaded is not None:
         raw_text = extract_text_from_pdf(data)
 
     with st.expander("📄 Texto extraído (vista previa)"):
-        # Solo para vista previa de UI; el Word usa el texto completo procesado
         st.text_area("Contenido", raw_text[:6000], height=280)
 
     st.divider()
