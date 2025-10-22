@@ -1,11 +1,9 @@
-
-
-import io, yaml, pdfplumber
+import io, yaml, pdfplumber, re
 import streamlit as st
 import pandas as pd
 import numpy as np
 from docx import Document
-from docx.shared import Pt
+from docx.shared import Pt, Cm
 from datetime import datetime
 
 st.set_page_config(
@@ -16,7 +14,6 @@ st.set_page_config(
 
 @st.cache_resource
 def load_rubric():
-    import yaml
     with open("rubric_final.yaml", "r", encoding="utf-8") as f:
         return yaml.safe_load(f)
 
@@ -35,6 +32,9 @@ CRITERIA = [
     ("impacto", "Impacto y conclusiones"),
 ]
 
+# -------------------------
+# Extracción de texto
+# -------------------------
 def extract_text_from_docx(file_bytes: bytes) -> str:
     buffer = io.BytesIO(file_bytes)
     doc = Document(buffer)
@@ -48,6 +48,9 @@ def extract_text_from_pdf(file_bytes: bytes) -> str:
             text_parts.append(page.extract_text() or "")
     return "\n".join(text_parts)
 
+# -------------------------
+# Scoring
+# -------------------------
 def naive_auto_score(text: str, key: str) -> int:
     words = RUBRIC.get("keywords", {}).get(key, [])
     lower = text.lower()
@@ -90,7 +93,7 @@ def make_excel(scores: dict, final_pct: float, label: str) -> bytes:
         "Clave": key,
         "Puntaje (0-4)": scores[key],
         "Peso (%)": weights.get(key, 0),
-        "Aporte (%)": round((scores[key]/RUBRIC["scale"]["max"])*weights.get(key,0), 2)
+        "Aporte (%)": round((scores[key]/RUBRIC['scale']['max'])*weights.get(key,0), 2)
     } for key, name in CRITERIA])
     df_total = pd.DataFrame([{"Total (%)": final_pct, "Dictamen": label}])
     with io.BytesIO() as output:
@@ -99,13 +102,88 @@ def make_excel(scores: dict, final_pct: float, label: str) -> bytes:
             df_total.to_excel(writer, index=False, sheet_name="Resumen")
         return output.getvalue()
 
+# -------------------------
+# Helpers Word
+# -------------------------
+def _add_full_text_as_paragraphs(doc: Document, text: str) -> None:
+    """Inserta texto completo en párrafos limpios (sin recortes)."""
+    if not text:
+        return
+    blocks = re.split(r"\n{2,}", text.strip())
+    for block in blocks:
+        lines = [ln.strip() for ln in block.splitlines() if ln.strip()]
+        paragraph_text = " ".join(lines)
+        if paragraph_text:
+            p = doc.add_paragraph(paragraph_text)
+            p.paragraph_format.space_after = Pt(6)
+        else:
+            doc.add_paragraph("")
+
+def _recortar_evidencia_final(raw_text: str) -> str:
+    """
+    Conserva desde el encabezado del informe final hacia adelante
+    y (si aparece) se detiene en el primer separador fuerte.
+    """
+    if not raw_text:
+        return raw_text
+
+    # posibles encabezados de inicio (case-insensitive)
+    inicios = [
+        "INFORME FINAL",
+        "INFORME FINAL DEL PROYECTO",
+        "INFORME FINAL –",
+        "INFORME FINAL:",
+        # fallback por si el archivo usa el mismo encabezado que avance
+        "INFORME DE AVANCE"
+    ]
+    lower = raw_text.lower()
+    start_pos = -1
+    start_label = ""
+    for patt in inicios:
+        pos = lower.find(patt.lower())
+        if pos != -1 and (start_pos == -1 or pos < start_pos):
+            start_pos = pos
+            start_label = patt
+    if start_pos == -1:
+        # si no se encuentra un encabezado, devolvemos todo
+        return raw_text.strip()
+
+    fragment = raw_text[start_pos:]
+
+    # separadores donde conviene cortar
+    separadores = [
+        "\n___",
+        "\n—", "\n- - -", "\n***",
+        "CONCLUSIONES", "Conclusiones",
+        "ANEXOS", "Anexos",
+        "Resultados parciales", "RESULTADOS PARCIALES",  # por compatibilidad
+        "\nII.-", "\nII .-", "\nII -", "\n\nII"
+    ]
+    cortes = [fragment.find(s) for s in separadores if fragment.find(s) != -1]
+    stop = min(cortes) if cortes else -1
+    fragmento = fragment[:stop].strip() if stop != -1 else fragment.strip()
+    return fragmento
+
+# -------------------------
+# Generación de Word
+# -------------------------
 def make_word(scores: dict, final_pct: float, label: str, raw_text: str) -> bytes:
     weights = RUBRIC["weights"]
     doc = Document()
+
+    # Estilo base
     styles = doc.styles['Normal']
     styles.font.name = 'Times New Roman'
     styles.font.size = Pt(11)
 
+    # Márgenes más amplios (más área útil)
+    for section in doc.sections:
+        section.top_margin = Cm(2.0)
+        section.bottom_margin = Cm(2.0)
+        section.left_margin = Cm(2.0)
+        section.right_margin = Cm(2.0)
+
+    # Encabezado
     doc.add_heading('UCCuyo – Valoración de Informe Final', level=1)
     today = datetime.now().strftime("%Y-%m-%d %H:%M")
     doc.add_paragraph(f"Fecha: {today}")
@@ -118,7 +196,8 @@ def make_word(scores: dict, final_pct: float, label: str, raw_text: str) -> byte
         w = weights.get(key, 0)
         aporte = round((s/RUBRIC['scale']['max'])*w, 2)
         p = doc.add_paragraph()
-        p.add_run(f"{name} ").bold = True
+        r = p.add_run(f"{name} ")
+        r.bold = True
         p.add_run(f"(Puntaje: {s}/4 · Peso: {w}% · Aporte: {aporte}%)")
 
     doc.add_paragraph("")
@@ -129,14 +208,21 @@ def make_word(scores: dict, final_pct: float, label: str, raw_text: str) -> byte
     doc.add_paragraph("Aspectos a mejorar: " + (", ".join(mejoras) if mejoras else "no se identifican aspectos críticos."))
 
     doc.add_paragraph("")
-    doc.add_heading('Evidencia analizada (extracto)', level=2)
-    excerpt = (raw_text[:2500] + "...") if len(raw_text) > 2500 else raw_text
-    doc.add_paragraph(excerpt)
+    doc.add_heading('Evidencia analizada (texto completo)', level=2)
+
+    # --- Recorte inteligente para informes finales ---
+    evidencia = _recortar_evidencia_final(raw_text)
+
+    # Agregar texto (sin “…” y sin límite de caracteres)
+    _add_full_text_as_paragraphs(doc, evidencia)
 
     with io.BytesIO() as buffer:
         doc.save(buffer)
         return buffer.getvalue()
 
+# -------------------------
+# UI
+# -------------------------
 st.markdown("## 🧾 Valorador de Informes **Finales**")
 st.write("Subí un **PDF o DOCX**. La app extrae el texto, propone un puntaje automático por 11 criterios y permite **ajustarlos manualmente** antes de exportar los resultados. No se compara contra el proyecto original.")
 
@@ -151,6 +237,7 @@ if uploaded is not None:
         raw_text = extract_text_from_pdf(data)
 
     with st.expander("📄 Texto extraído (vista previa)"):
+        # Solo para vista previa de UI; el Word usa el texto completo procesado
         st.text_area("Contenido", raw_text[:6000], height=280)
 
     st.divider()
@@ -190,4 +277,3 @@ if uploaded is not None:
         st.download_button("Descargar configuración (YAML)", data=open("rubric_final.yaml","rb").read(), file_name="rubric_final.yaml")
 else:
     st.info("Esperando archivo...")
-
