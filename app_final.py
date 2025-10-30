@@ -1,287 +1,174 @@
-import io, yaml, pdfplumber, re
 import streamlit as st
 import pandas as pd
 import numpy as np
+import pdfplumber
+import yaml
+import io
 from docx import Document
-from docx.shared import Pt, Cm
+from docx.shared import Pt
 from datetime import datetime
+from openpyxl import Workbook
 
-st.set_page_config(
-    page_title="UCCuyo · Valorador de Informes Finales",
-    page_icon="🧾",
-    layout="wide"
-)
+# ==============================
+# CARGA DE CONFIGURACIÓN
+# ==============================
+with open("rubric_final.yaml", "r", encoding="utf-8") as f:
+    config = yaml.safe_load(f)
 
-@st.cache_resource
-def load_rubric():
-    with open("rubric_final.yaml", "r", encoding="utf-8") as f:
-        return yaml.safe_load(f)
+weights = config["weights"]
+thresholds = config["thresholds"]
+keywords = config["keywords"]
 
-RUBRIC = load_rubric()
-CRITERIA = [
-    ("identificacion", "Identificación y datos generales"),
-    ("objetivos", "Cumplimiento de los objetivos"),
-    ("metodologia", "Metodología aplicada"),
-    ("resultados", "Resultados obtenidos"),
-    ("formacion", "Formación de recursos humanos"),
-    ("difusion", "Acciones de difusión científica"),
-    ("transferencia", "Acciones de transferencia y vinculación"),
-    ("equipo", "Desempeño del equipo"),
-    ("gestion_recursos", "Gestión de recursos"),
-    ("calidad_formal", "Calidad formal del informe"),
-    ("impacto", "Impacto y conclusiones"),
-]
-
-# -------------------------
-# Extracción de texto
-# -------------------------
-def extract_text_from_docx(file_bytes: bytes) -> str:
-    buffer = io.BytesIO(file_bytes)
-    doc = Document(buffer)
-    return "\n".join([p.text for p in doc.paragraphs])
-
-def extract_text_from_pdf(file_bytes: bytes) -> str:
-    buffer = io.BytesIO(file_bytes)
-    text_parts = []
-    with pdfplumber.open(buffer) as pdf:
-        for page in pdf.pages:
-            text_parts.append(page.extract_text() or "")
-    return "\n".join(text_parts)
-
-# -------------------------
-# Scoring
-# -------------------------
-def naive_auto_score(text: str, key: str) -> int:
-    words = RUBRIC.get("keywords", {}).get(key, [])
-    lower = text.lower()
-    hits = sum(1 for w in words if w.lower() in lower)
-    if not words:
-        return 0
-    ratio = hits / len(words)
-    if ratio == 0:
-        return 0
-    elif ratio < 0.25:
-        return 1
-    elif ratio < 0.5:
-        return 2
-    elif ratio < 0.75:
-        return 3
+# ==============================
+# FUNCIONES DE PROCESAMIENTO
+# ==============================
+def extract_text(file):
+    """Extrae texto desde PDF o DOCX"""
+    if file.name.endswith(".pdf"):
+        text = ""
+        with pdfplumber.open(file) as pdf:
+            for page in pdf.pages:
+                text += page.extract_text() + "\n"
+        return text
+    elif file.name.endswith(".docx"):
+        doc = Document(file)
+        return "\n".join([p.text for p in doc.paragraphs])
     else:
-        return 4
+        return ""
 
-def weighted_total(scores: dict) -> float:
-    weights = RUBRIC["weights"]
-    total = 0.0
-    for k, v in scores.items():
-        w = weights.get(k, 0)
-        total += (v / RUBRIC["scale"]["max"]) * w
-    return round(total, 2)
-
-def decision(final_pct: float) -> str:
-    th = RUBRIC["thresholds"]
-    if final_pct >= th["aprobado"]:
-        return "APROBADO"
-    elif final_pct >= th["aprobado_obs"]:
-        return "APROBADO CON OBSERVACIONES"
-    else:
-        return "NO APROBADO"
-
-def make_excel(scores: dict, final_pct: float, label: str) -> bytes:
-    weights = RUBRIC["weights"]
-    df = pd.DataFrame([{
-        "Criterio": name,
-        "Clave": key,
-        "Puntaje (0-4)": scores[key],
-        "Peso (%)": weights.get(key, 0),
-        "Aporte (%)": round((scores[key]/RUBRIC['scale']['max'])*weights.get(key,0), 2)
-    } for key, name in CRITERIA])
-    df_total = pd.DataFrame([{"Total (%)": final_pct, "Dictamen": label}])
-    with io.BytesIO() as output:
-        with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
-            df.to_excel(writer, index=False, sheet_name="Resultados")
-            df_total.to_excel(writer, index=False, sheet_name="Resumen")
-        return output.getvalue()
-
-# -------------------------
-# Helpers Word
-# -------------------------
-def _split_long_paragraphs(text: str, max_len: int = 2000):
-    """
-    Divide un párrafo largo en trozos <= max_len para evitar el límite de 32.767
-    caracteres por párrafo de Word.
-    """
-    text = text.strip()
-    if not text:
-        return []
-    chunks = []
-    i = 0
-    n = len(text)
-    while i < n:
-        j = min(i + max_len, n)
-        # intentar cortar en un espacio/punto cercano para no romper palabras
-        k = text.rfind(" ", i, j)
-        if k == -1 or k <= i + int(max_len*0.6):
-            k = j
-        chunks.append(text[i:k].strip())
-        i = k
-    return [c for c in chunks if c]
-
-def _add_full_text_as_paragraphs(doc: Document, text: str, max_len: int = 2000) -> None:
-    """
-    Inserta texto en párrafos. Usa doble salto como separador preferente; si no hay,
-    también acepta salto simple. Cualquier párrafo que supere max_len se trocea.
-    """
-    if not text:
-        return
-    # Primero, separar por doble salto. Si no hay, usar simple.
-    if "\n\n" in text:
-        blocks = re.split(r"\n{2,}", text.strip())
-    else:
-        blocks = [b for b in text.split("\n")]
-
-    for block in blocks:
-        block = " ".join([ln.strip() for ln in block.splitlines() if ln.strip()])
-        if not block:
-            doc.add_paragraph("")
-            continue
-        for chunk in _split_long_paragraphs(block, max_len=max_len):
-            p = doc.add_paragraph(chunk)
-            p.paragraph_format.space_after = Pt(6)
-
-def _recortar_evidencia_final(raw_text: str) -> str:
-    """
-    Conserva desde el encabezado del informe final hacia adelante.
-    NO corta por separadores para evitar truncado prematuro; el troceo
-    por párrafos se encarga del límite de Word.
-    """
-    if not raw_text:
-        return raw_text
-    inicios = [
-        "INFORME FINAL",
-        "INFORME FINAL DEL PROYECTO",
-        "INFORME FINAL DE INVESTIGACIÓN",
-        "INFORME FINAL –",
-        "INFORME FINAL:",
-        # fallback por si el archivo usa el mismo encabezado que avance
-        "INFORME DE AVANCE"
-    ]
-    lower = raw_text.lower()
-    start_pos = -1
-    for patt in inicios:
-        pos = lower.find(patt.lower())
-        if pos != -1 and (start_pos == -1 or pos < start_pos):
-            start_pos = pos
-    if start_pos == -1:
-        return raw_text.strip()
-    return raw_text[start_pos:].strip()
-
-# -------------------------
-# Generación de Word
-# -------------------------
-def make_word(scores: dict, final_pct: float, label: str, raw_text: str) -> bytes:
-    weights = RUBRIC["weights"]
-    doc = Document()
-
-    # Estilo base
-    styles = doc.styles['Normal']
-    styles.font.name = 'Times New Roman'
-    styles.font.size = Pt(11)
-
-    # Márgenes (más área útil)
-    for section in doc.sections:
-        section.top_margin = Cm(2.0)
-        section.bottom_margin = Cm(2.0)
-        section.left_margin = Cm(2.0)
-        section.right_margin = Cm(2.0)
-
-    # Encabezado
-    doc.add_heading('UCCuyo – Valoración de Informe Final', level=1)
-    today = datetime.now().strftime("%Y-%m-%d %H:%M")
-    doc.add_paragraph(f"Fecha: {today}")
-    doc.add_paragraph(f"Dictamen: {label}  —  Cumplimiento: {final_pct}%")
-    doc.add_paragraph("")
-    doc.add_heading('Resultados por criterio', level=2)
-
-    for key, name in CRITERIA:
-        s = scores[key]
-        w = weights.get(key, 0)
-        aporte = round((s/RUBRIC['scale']['max'])*w, 2)
-        p = doc.add_paragraph()
-        r = p.add_run(f"{name} ")
-        r.bold = True
-        p.add_run(f"(Puntaje: {s}/4 · Peso: {w}% · Aporte: {aporte}%)")
-
-    doc.add_paragraph("")
-    doc.add_heading('Interpretación', level=2)
-    fortalezas = [name for key, name in CRITERIA if scores[key] >= 3]
-    mejoras = [name for key, name in CRITERIA if scores[key] <= 1]
-    doc.add_paragraph("Fortalezas: " + (", ".join(fortalezas) if fortalezas else "no se identifican fortalezas destacadas."))
-    doc.add_paragraph("Aspectos a mejorar: " + (", ".join(mejoras) if mejoras else "no se identifican aspectos críticos."))
-
-    doc.add_paragraph("")
-    doc.add_heading('Evidencia analizada (texto completo)', level=2)
-
-    # Evidencia: desde el encabezado del informe final y con troceo seguro
-    evidencia = _recortar_evidencia_final(raw_text)
-    _add_full_text_as_paragraphs(doc, evidencia, max_len=2000)
-
-    with io.BytesIO() as buffer:
-        doc.save(buffer)
-        return buffer.getvalue()
-
-# -------------------------
-# UI
-# -------------------------
-st.markdown("## 🧾 Valorador de Informes **Finales**")
-st.write("Subí un **PDF o DOCX**. La app extrae el texto, propone un puntaje automático por 11 criterios y permite **ajustarlos manualmente** antes de exportar los resultados. No se compara contra el proyecto original.")
-
-uploaded = st.file_uploader("Cargar archivo (PDF o DOCX)", type=["pdf", "docx"])
-
-raw_text = ""
-if uploaded is not None:
-    data = uploaded.read()
-    if uploaded.name.lower().endswith(".docx"):
-        raw_text = extract_text_from_docx(data)
-    else:
-        raw_text = extract_text_from_pdf(data)
-
-    with st.expander("📄 Texto extraído (vista previa)"):
-        st.text_area("Contenido", raw_text[:6000], height=280)
-
-    st.divider()
-    st.subheader("Evaluación automática + ajuste manual")
-
-    cols = st.columns(3)
-    auto_scores = {}
-    for idx, (key, name) in enumerate(CRITERIA):
-        if idx % 3 == 0:
-            cols = st.columns(3)
-        col = cols[idx % 3]
-        with col:
-            auto = naive_auto_score(raw_text, key)
-            auto_scores[key] = auto
-
-    st.write("**Sugerencia automática (0–4)**:", auto_scores)
-
-    st.markdown("### Ajustar puntajes (0–4)")
+def auto_score(text, keywords_dict):
+    """Calcula puntaje automático según palabras clave"""
     scores = {}
-    for key, name in CRITERIA:
-        scores[key] = st.slider(name, min_value=0, max_value=4, value=int(auto_scores.get(key,0)))
+    for section, keys in keywords_dict.items():
+        found = sum(k.lower() in text.lower() for k in keys)
+        # Escala simple: 0 a 4
+        scores[section] = min(4, found)
+    return scores
 
-    final_pct = weighted_total(scores)
-    label = decision(final_pct)
-    st.markdown(f"### Resultado: **{label}** — Cumplimiento **{final_pct}%**")
+def weighted_score(scores, weights):
+    """Calcula el puntaje total ponderado"""
+    total = sum(scores[s] * weights[s] for s in scores)
+    max_total = sum(weights.values()) * 4
+    percent = (total / max_total) * 100
+    return percent
 
-    c1, c2, c3 = st.columns(3)
-    with c1:
-        if st.button("⬇️ Exportar Excel"):
-            xls = make_excel(scores, final_pct, label)
-            st.download_button("Descargar resultados.xlsx", data=xls, file_name="valoracion_informe_final.xlsx")
-    with c2:
-        if st.button("⬇️ Exportar Word"):
-            docx_bytes = make_word(scores, final_pct, label, raw_text)
-            st.download_button("Descargar dictamen.docx", data=docx_bytes, file_name="dictamen_informe_final.docx")
-    with c3:
-        st.download_button("Descargar configuración (YAML)", data=open("rubric_final.yaml","rb").read(), file_name="rubric_final.yaml")
-else:
-    st.info("Esperando archivo...")
+def generate_excel(scores, percent, thresholds):
+    """Genera archivo Excel con resultados"""
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Resultados"
+    ws.append(["Criterio", "Puntaje (0-4)"])
+    for k, v in scores.items():
+        ws.append([k, v])
+    ws.append([])
+    ws.append(["Puntaje total (%)", round(percent, 2)])
+    if percent >= thresholds["aprobado"]:
+        result = "Aprobado"
+    elif percent >= thresholds["aprobado_obs"]:
+        result = "Aprobado con observaciones"
+    else:
+        result = "No aprobado"
+    ws.append(["Dictamen", result])
+
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+    return output
+
+def generate_word(scores, percent, thresholds):
+    """Genera dictamen en Word (sin apartado de evidencia analizada)"""
+    doc = Document()
+    style = doc.styles["Normal"]
+    style.font.name = "Arial"
+    style.font.size = Pt(11)
+
+    doc.add_heading("Valoración del Informe Final", level=1)
+
+    # Fecha y encabezado
+    doc.add_paragraph(f"Fecha de evaluación: {datetime.today().strftime('%d/%m/%Y')}")
+    doc.add_paragraph("")
+
+    # PUNTAJES
+    doc.add_heading("Puntajes por criterio", level=2)
+    table = doc.add_table(rows=1, cols=2)
+    hdr_cells = table.rows[0].cells
+    hdr_cells[0].text = "Criterio"
+    hdr_cells[1].text = "Puntaje (0–4)"
+
+    for k, v in scores.items():
+        row_cells = table.add_row().cells
+        row_cells[0].text = k.replace("_", " ").capitalize()
+        row_cells[1].text = str(v)
+
+    doc.add_paragraph("")
+    total_text = f"Puntaje total: {round(percent,2)}%"
+    doc.add_paragraph(total_text)
+
+    # DICTAMEN FINAL
+    if percent >= thresholds["aprobado"]:
+        result = "Aprobado"
+    elif percent >= thresholds["aprobado_obs"]:
+        result = "Aprobado con observaciones"
+    else:
+        result = "No aprobado"
+
+    doc.add_heading("Dictamen final", level=2)
+    doc.add_paragraph(result)
+
+    # Se eliminó por completo el bloque de evidencia analizada
+
+    # Observaciones
+    doc.add_heading("Observaciones del evaluador", level=2)
+    doc.add_paragraph("................................................................................")
+    doc.add_paragraph("................................................................................")
+    doc.add_paragraph("................................................................................")
+
+    output = io.BytesIO()
+    doc.save(output)
+    output.seek(0)
+    return output
+
+# ==============================
+# INTERFAZ STREAMLIT
+# ==============================
+st.title("📊 Valorador de Informes Finales")
+st.write("Subí un informe final en formato PDF o DOCX para evaluarlo automáticamente según la rúbrica institucional.")
+
+uploaded_file = st.file_uploader("Cargar archivo", type=["pdf", "docx"])
+
+if uploaded_file:
+    text = extract_text(uploaded_file)
+
+    with st.expander("Ver texto extraído"):
+        st.text_area("Texto completo", text, height=300)
+
+    st.subheader("Evaluación automática")
+    auto_scores = auto_score(text, keywords)
+    df = pd.DataFrame(auto_scores.items(), columns=["Criterio", "Puntaje (0–4)"])
+    st.dataframe(df, use_container_width=True)
+
+    percent = weighted_score(auto_scores, weights)
+    st.metric(label="Puntaje total (%)", value=round(percent, 2))
+
+    if percent >= thresholds["aprobado"]:
+        result = "✅ Aprobado"
+    elif percent >= thresholds["aprobado_obs"]:
+        result = "⚠️ Aprobado con observaciones"
+    else:
+        result = "❌ No aprobado"
+    st.success(f"Dictamen automático: {result}")
+
+    st.subheader("Ajuste manual (opcional)")
+    manual_scores = {}
+    for k in auto_scores.keys():
+        manual_scores[k] = st.slider(f"{k.replace('_',' ').capitalize()}", 0, 4, int(auto_scores[k]))
+
+    if st.button("Generar informes"):
+        final_percent = weighted_score(manual_scores, weights)
+        excel_file = generate_excel(manual_scores, final_percent, thresholds)
+        word_file = generate_word(manual_scores, final_percent, thresholds)
+
+        st.download_button("⬇️ Descargar Excel", excel_file, file_name="valoracion_informe_final.xlsx")
+        st.download_button("⬇️ Descargar Word", word_file, file_name="valoracion_informe_final.docx")
+
+        st.success("Archivos generados correctamente (sin apartado de evidencia analizada).")
