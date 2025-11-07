@@ -8,6 +8,7 @@ from docx import Document
 from docx.shared import Pt
 from datetime import datetime
 from openpyxl import Workbook
+import os
 
 # ============================
 # CONFIGURACIÓN
@@ -15,26 +16,26 @@ from openpyxl import Workbook
 with open("rubric_final.yaml", "r", encoding="utf-8") as f:
     config = yaml.safe_load(f)
 
-weights = config["weights"]
+weights    = config["weights"]
 thresholds = config["thresholds"]
-keywords = config["keywords"]
-scale_min = config["scale"]["min"]
-scale_max = config["scale"]["max"]
+keywords   = config["keywords"]
+scale_min  = config["scale"]["min"]
+scale_max  = config["scale"]["max"]
 
 # ============================
 # FUNCIONES
 # ============================
 def extract_text(file):
     """Extrae texto desde PDF o DOCX"""
-    if file.name.endswith(".pdf"):
+    if file.name.lower().endswith(".pdf"):
         text = ""
         with pdfplumber.open(file) as pdf:
             for page in pdf.pages:
                 text += (page.extract_text() or "") + "\n"
         return text
-    elif file.name.endswith(".docx"):
+    elif file.name.lower().endswith(".docx"):
         doc = Document(file)
-        return "\n".join([p.text for p in doc.paragraphs])
+        return "\n".join(p.text for p in doc.paragraphs)
     else:
         return ""
 
@@ -51,8 +52,7 @@ def weighted_score(scores, weights):
     """Calcula el puntaje total ponderado (0–100)"""
     total = sum(scores[s] * weights[s] for s in scores)
     max_total = sum(weights.values()) * scale_max
-    percent = (total / max_total) * 100 if max_total > 0 else 0.0
-    return percent
+    return (total / max_total) * 100 if max_total > 0 else 0.0
 
 def generate_excel(scores, percent, thresholds):
     """Genera archivo Excel con resultados"""
@@ -61,7 +61,7 @@ def generate_excel(scores, percent, thresholds):
     ws.title = "Resultados"
     ws.append(["Criterio", "Puntaje (0–4)"])
     for k, v in scores.items():
-        ws.append([k.replace("_"," ").capitalize(), v])
+        ws.append([k.replace("_", " ").capitalize(), v])
     ws.append([])
     ws.append(["Puntaje total (%)", round(percent, 2)])
     if percent >= thresholds["aprobado"]:
@@ -71,10 +71,9 @@ def generate_excel(scores, percent, thresholds):
     else:
         result = "No aprobado"
     ws.append(["Dictamen", result])
-    output = io.BytesIO()
-    wb.save(output)
-    output.seek(0)
-    return output
+    out = io.BytesIO()
+    wb.save(out); out.seek(0)
+    return out
 
 def generate_word(scores, percent, thresholds, nombre_proyecto=""):
     """Genera dictamen Word incluyendo el nombre del proyecto"""
@@ -101,10 +100,10 @@ def generate_word(scores, percent, thresholds, nombre_proyecto=""):
     hdr[1].text = "Puntaje (0–4)"
     for k, v in scores.items():
         row = table.add_row().cells
-        row[0].text = k.replace("_"," ").capitalize()
+        row[0].text = k.replace("_", " ").capitalize()
         row[1].text = str(v)
 
-    doc.add_paragraph(f"\nPuntaje total: {round(percent,2)}%")
+    doc.add_paragraph(f"\nPuntaje total: {round(percent, 2)}%")
 
     # Dictamen final
     if percent >= thresholds["aprobado"]:
@@ -123,10 +122,14 @@ def generate_word(scores, percent, thresholds, nombre_proyecto=""):
     doc.add_paragraph("................................................................................")
     doc.add_paragraph("................................................................................")
 
-    output = io.BytesIO()
-    doc.save(output)
-    output.seek(0)
-    return output
+    out = io.BytesIO()
+    doc.save(out); out.seek(0)
+    return out
+
+def filename_without_ext(name: str) -> str:
+    """Nombre del archivo sin extensión, para usar como fallback del proyecto."""
+    base = os.path.basename(name or "")
+    return os.path.splitext(base)[0]
 
 # ============================
 # INTERFAZ STREAMLIT
@@ -134,7 +137,11 @@ def generate_word(scores, percent, thresholds, nombre_proyecto=""):
 st.title("📘 Valorador de Informes Finales")
 st.write("Subí un informe final (PDF o DOCX) para evaluarlo automáticamente según la rúbrica institucional.")
 
-uploaded_file = st.file_uploader("Cargar informe", type=["pdf", "docx"])
+uploaded_file = st.file_uploader("Cargar informe (PDF o DOCX)", type=["pdf", "docx"])
+
+# Campo SIEMPRE visible: nombre del proyecto
+default_name = filename_without_ext(uploaded_file.name) if uploaded_file else ""
+nombre_proyecto = st.text_input("Nombre del proyecto (aparecerá en el Word):", value=default_name)
 
 if uploaded_file:
     text = extract_text(uploaded_file)
@@ -160,10 +167,7 @@ if uploaded_file:
     for k in auto_scores.keys():
         manual_scores[k] = st.slider(f"{k.replace('_',' ').capitalize()}", scale_min, scale_max, int(auto_scores[k]))
 
-    # Nombre del proyecto para el Word
-    nombre_proyecto = st.text_input("Nombre del proyecto (aparecerá en el Word):", "")
-
-    # Usar automáticos por defecto
+    # Por defecto exporta con automáticos (evita diferencias por sliders guardados)
     use_auto = st.checkbox("Generar informe con los puntajes automáticos (recomendado)", value=True)
 
     if st.button("Generar informes"):
@@ -175,4 +179,5 @@ if uploaded_file:
         st.download_button("⬇️ Descargar Excel", excel_file, file_name="valoracion_informe_final.xlsx")
         st.download_button("⬇️ Descargar Word",  word_file,  file_name="valoracion_informe_final.docx")
 
-        st.success("Informe generado con puntajes {}.".format("automáticos" if use_auto else "ajustados manualmente"))
+        st.success("Informe generado con puntajes {}."
+                   .format("automáticos" if use_auto else "ajustados manualmente"))
