@@ -39,7 +39,7 @@ def extract_text(file):
         return ""
 
 def auto_score(text, keywords_dict):
-    """Calcula puntajes automáticos según palabras clave (muy básico)"""
+    """Calcula puntajes automáticos según palabras clave (simple)"""
     scores = {}
     text_low = (text or "").lower()
     for section, keys in keywords_dict.items():
@@ -132,8 +132,9 @@ def generate_word(scores, percent, thresholds, nombre_proyecto=""):
 # INTERFAZ STREAMLIT
 # ============================
 st.title("📘 Valorador de Informes Finales")
+st.write("Subí un informe final (PDF o DOCX) para evaluarlo automáticamente según la rúbrica institucional.")
 
-uploaded_file = st.file_uploader("Cargar informe (PDF o DOCX)", type=["pdf", "docx"])
+uploaded_file = st.file_uploader("Cargar informe", type=["pdf", "docx"])
 
 if uploaded_file:
     text = extract_text(uploaded_file)
@@ -162,7 +163,7 @@ if uploaded_file:
     # Nombre del proyecto para el Word
     nombre_proyecto = st.text_input("Nombre del proyecto (aparecerá en el Word):", "")
 
-    # Usar automáticos por defecto para evitar desajustes
+    # Usar automáticos por defecto
     use_auto = st.checkbox("Generar informe con los puntajes automáticos (recomendado)", value=True)
 
     if st.button("Generar informes"):
