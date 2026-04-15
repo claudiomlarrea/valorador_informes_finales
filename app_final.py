@@ -37,16 +37,33 @@ def extract_text(file):
     return ""
 
 
-# 🔥 FUNCIÓN MEJORADA CON PENALIZACIÓN
+# 🔥 FUNCIÓN FINAL TIPO JURADO
 def auto_score(text, keywords_dict):
     scores = {}
     text_low = (text or "").lower()
 
     for section, keys in keywords_dict.items():
-        found = sum(k in text_low for k in keys) // 2
+
+        found = sum(k in text_low for k in keys)
+
+        # 🔴 BASE EXIGENTE
+        if found >= 6:
+            base = 4
+        elif found >= 4:
+            base = 3
+        elif found >= 2:
+            base = 2
+        elif found >= 1:
+            base = 1
+        else:
+            base = 0
 
         bonus = 0
         penalty = 0
+
+        # ============================
+        # REGLAS TIPO JURADO
+        # ============================
 
         # OBJETIVOS
         if section == "objetivos":
@@ -59,16 +76,16 @@ def auto_score(text, keywords_dict):
 
         # CRONOGRAMA
         if section == "cronograma":
-            if "avance" in text_low or "%" in text_low:
+            if "%" in text_low:
                 bonus += 1
-            if "%" not in text_low:
+            else:
                 penalty += 2
 
         # RESULTADOS
         if section == "resultados":
             if "tabla" in text_low or "fig" in text_low:
                 bonus += 1
-            if "datos" not in text_low and "tabla" not in text_low:
+            if "datos" not in text_low:
                 penalty += 2
 
         # RRHH
@@ -85,7 +102,17 @@ def auto_score(text, keywords_dict):
             else:
                 penalty += 2
 
-        score = found + bonus - penalty
+        # CALIDAD FORMAL
+        if section == "calidad_formal":
+            if "bibliografía" not in text_low and "citación" not in text_low:
+                penalty += 1
+
+        # IMPACTO
+        if section == "impacto":
+            if "impacto" not in text_low:
+                penalty += 1
+
+        score = base + bonus - penalty
         scores[section] = max(0, min(4, score))
 
     return scores
