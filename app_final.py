@@ -37,16 +37,27 @@ def extract_text(file):
     return ""
 
 
-# 🔥 FUNCIÓN FINAL TIPO JURADO
+# 🔥 FUNCIÓN INSTITUCIONAL FINAL
 def auto_score(text, keywords_dict):
     scores = {}
     text_low = (text or "").lower()
+
+    # ============================
+    # DETECCIONES GLOBALES
+    # ============================
+
+    tiene_objetivos = "objetivo" in text_low
+    tiene_resultados = "resultado" in text_low
+    tiene_datos = "tabla" in text_low or "fig" in text_low or "datos" in text_low
+    tiene_porcentajes = "%" in text_low
+    tiene_transferencia = "publicación" in text_low or "congreso" in text_low
+    tiene_rrhh = "tesis" in text_low or "beca" in text_low
 
     for section, keys in keywords_dict.items():
 
         found = sum(k in text_low for k in keys)
 
-        # 🔴 BASE EXIGENTE
+        # BASE EXIGENTE
         if found >= 6:
             base = 4
         elif found >= 4:
@@ -61,56 +72,59 @@ def auto_score(text, keywords_dict):
         bonus = 0
         penalty = 0
 
-        # ============================
-        # REGLAS TIPO JURADO
-        # ============================
-
         # OBJETIVOS
         if section == "objetivos":
-            if "%" in text_low:
+            if tiene_porcentajes:
                 bonus += 1
             if "cumpl" in text_low or "logr" in text_low:
                 bonus += 1
-            if "objetivo" not in text_low:
-                penalty += 2
+            if not tiene_objetivos:
+                penalty += 3
 
         # CRONOGRAMA
         if section == "cronograma":
-            if "%" in text_low:
+            if tiene_porcentajes:
                 bonus += 1
             else:
-                penalty += 2
+                penalty += 3
 
         # RESULTADOS
         if section == "resultados":
-            if "tabla" in text_low or "fig" in text_low:
+            if tiene_datos:
                 bonus += 1
-            if "datos" not in text_low:
-                penalty += 2
+            else:
+                penalty += 3
 
         # RRHH
         if section == "formacion_rrhh":
-            if "tesis" in text_low or "beca" in text_low:
+            if tiene_rrhh:
                 bonus += 1
             else:
-                penalty += 2
+                penalty += 3
 
         # TRANSFERENCIA
         if section == "transferencia":
-            if "publicación" in text_low or "congreso" in text_low:
+            if tiene_transferencia:
                 bonus += 1
             else:
-                penalty += 2
+                penalty += 3
 
         # CALIDAD FORMAL
         if section == "calidad_formal":
             if "bibliografía" not in text_low and "citación" not in text_low:
-                penalty += 1
+                penalty += 2
 
         # IMPACTO
         if section == "impacto":
             if "impacto" not in text_low:
-                penalty += 1
+                penalty += 2
+
+        # COHERENCIA GLOBAL
+        if tiene_objetivos and not tiene_resultados:
+            penalty += 3
+
+        if tiene_resultados and not tiene_datos:
+            penalty += 2
 
         score = base + bonus - penalty
         scores[section] = max(0, min(4, score))
@@ -121,7 +135,25 @@ def auto_score(text, keywords_dict):
 def weighted_score(scores, weights):
     total = sum(scores[s] * weights[s] for s in scores)
     max_total = sum(weights.values()) * 4
-    return (total / max_total) * 100
+
+    percent = (total / max_total) * 100
+
+    # PENALIZACIÓN GLOBAL
+    criterios_bajos = sum(1 for s in scores.values() if s <= 1)
+
+    if criterios_bajos >= 4:
+        percent -= 10
+
+    if criterios_bajos >= 6:
+        percent -= 15
+
+    # PROMEDIO GENERAL
+    promedio = sum(scores.values()) / len(scores)
+
+    if promedio < 1.5:
+        percent -= 15
+
+    return max(0, percent)
 
 
 def generate_excel(scores, percent, thresholds):
