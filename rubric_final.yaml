@@ -31,7 +31,7 @@ keywords:
     - actividades planificadas
     - actividades ejecutadas
     - porcentaje de avance
-    - %
+    - "%"
     - cumplimiento
     - desvío
     - avance
@@ -44,8 +44,8 @@ keywords:
     - alcanzado
     - parcialmente
     - se cumplió
-    - 100 %
-    - 50 %
+    - "100 %"
+    - "50 %"
 
   metodologia:
     - metodología
