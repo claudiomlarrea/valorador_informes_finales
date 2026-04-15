@@ -23,7 +23,6 @@ keywords = config["keywords"]
 # ============================
 
 def extract_text(file):
-    """Extrae texto desde PDF o DOCX"""
     if file.name.endswith(".pdf"):
         text = ""
         with pdfplumber.open(file) as pdf:
@@ -38,39 +37,56 @@ def extract_text(file):
     return ""
 
 
-# 🔥 NUEVA FUNCIÓN INTELIGENTE
+# 🔥 FUNCIÓN MEJORADA CON PENALIZACIÓN
 def auto_score(text, keywords_dict):
     scores = {}
     text_low = (text or "").lower()
 
     for section, keys in keywords_dict.items():
-        found = sum(k in text_low for k in keys)
+        found = sum(k in text_low for k in keys) // 2
 
         bonus = 0
+        penalty = 0
 
-        # OBJETIVOS → detectar cumplimiento real
+        # OBJETIVOS
         if section == "objetivos":
             if "%" in text_low:
                 bonus += 1
             if "cumpl" in text_low or "logr" in text_low:
                 bonus += 1
+            if "objetivo" not in text_low:
+                penalty += 2
 
-        # CRONOGRAMA → detectar avance
+        # CRONOGRAMA
         if section == "cronograma":
             if "avance" in text_low or "%" in text_low:
                 bonus += 1
+            if "%" not in text_low:
+                penalty += 2
 
-        # RESULTADOS → detectar evidencia
+        # RESULTADOS
         if section == "resultados":
             if "tabla" in text_low or "fig" in text_low:
                 bonus += 1
+            if "datos" not in text_low and "tabla" not in text_low:
+                penalty += 2
 
-        # RRHH → detectar formación real
+        # RRHH
         if section == "formacion_rrhh":
             if "tesis" in text_low or "beca" in text_low:
                 bonus += 1
+            else:
+                penalty += 2
 
-        scores[section] = min(4, found + bonus)
+        # TRANSFERENCIA
+        if section == "transferencia":
+            if "publicación" in text_low or "congreso" in text_low:
+                bonus += 1
+            else:
+                penalty += 2
+
+        score = found + bonus - penalty
+        scores[section] = max(0, min(4, score))
 
     return scores
 
@@ -78,8 +94,7 @@ def auto_score(text, keywords_dict):
 def weighted_score(scores, weights):
     total = sum(scores[s] * weights[s] for s in scores)
     max_total = sum(weights.values()) * 4
-    percent = (total / max_total) * 100 if max_total > 0 else 0.0
-    return percent
+    return (total / max_total) * 100
 
 
 def generate_excel(scores, percent, thresholds):
@@ -87,12 +102,12 @@ def generate_excel(scores, percent, thresholds):
     ws = wb.active
     ws.title = "Resultados"
 
-    ws.append(["Criterio", "Puntaje (0–4)"])
+    ws.append(["Criterio", "Puntaje"])
     for k, v in scores.items():
         ws.append([k, v])
 
     ws.append([])
-    ws.append(["Puntaje total (%)", round(percent, 2)])
+    ws.append(["Total (%)", round(percent, 2)])
 
     if percent >= thresholds["aprobado"]:
         result = "Aprobado"
@@ -122,7 +137,7 @@ def generate_word(scores, percent, thresholds, nombre_proyecto=""):
     if nombre_proyecto:
         doc.add_paragraph(f"Proyecto: {nombre_proyecto}")
 
-    doc.add_heading("Resultados por criterio", 2)
+    doc.add_heading("Resultados", 2)
 
     table = doc.add_table(rows=1, cols=2)
     hdr = table.rows[0].cells
@@ -131,10 +146,10 @@ def generate_word(scores, percent, thresholds, nombre_proyecto=""):
 
     for k, v in scores.items():
         row = table.add_row().cells
-        row[0].text = k.replace("_", " ").capitalize()
+        row[0].text = k
         row[1].text = str(v)
 
-    doc.add_paragraph(f"\nCumplimiento total: {round(percent, 2)}%")
+    doc.add_paragraph(f"\nTotal: {round(percent, 2)}%")
 
     if percent >= thresholds["aprobado"]:
         result = "Aprobado"
@@ -143,7 +158,7 @@ def generate_word(scores, percent, thresholds, nombre_proyecto=""):
     else:
         result = "No aprobado"
 
-    doc.add_heading("Dictamen final", 2)
+    doc.add_heading("Dictamen", 2)
     doc.add_paragraph(result)
 
     output = io.BytesIO()
@@ -156,41 +171,39 @@ def generate_word(scores, percent, thresholds, nombre_proyecto=""):
 # INTERFAZ
 # ============================
 
-st.title("📗 Valorador de Informes Finales")
+st.title("📊 Valorador de Informes Finales")
 
-uploaded_file = st.file_uploader("Subir informe (PDF o DOCX)", type=["pdf", "docx"])
+archivo = st.file_uploader("Subir informe", type=["pdf", "docx"])
 
-if uploaded_file:
-    text = extract_text(uploaded_file)
+if archivo:
+    texto = extract_text(archivo)
 
     st.subheader("Texto extraído")
-    st.text_area("Contenido", text, height=300)
+    st.text_area("Contenido", texto, height=300)
 
-    st.subheader("Evaluación automática")
+    scores = auto_score(texto, keywords)
 
-    auto_scores = auto_score(text, keywords)
-
-    df = pd.DataFrame(auto_scores.items(), columns=["Criterio", "Puntaje"])
+    df = pd.DataFrame(scores.items(), columns=["Criterio", "Puntaje"])
     st.dataframe(df)
 
-    percent = weighted_score(auto_scores, weights)
+    percent = weighted_score(scores, weights)
 
-    st.metric("Puntaje total (%)", round(percent, 2))
+    st.metric("Resultado (%)", round(percent, 2))
 
     if percent >= thresholds["aprobado"]:
-        result = "Aprobado"
+        resultado = "Aprobado"
     elif percent >= thresholds["aprobado_obs"]:
-        result = "Aprobado con observaciones"
+        resultado = "Aprobado con observaciones"
     else:
-        result = "No aprobado"
+        resultado = "No aprobado"
 
-    st.success(f"Dictamen: {result}")
+    st.success(f"Dictamen: {resultado}")
 
     nombre = st.text_input("Nombre del proyecto")
 
-    if st.button("Generar informes"):
-        excel = generate_excel(auto_scores, percent, thresholds)
-        word = generate_word(auto_scores, percent, thresholds, nombre)
+    if st.button("Generar informe"):
+        excel = generate_excel(scores, percent, thresholds)
+        word = generate_word(scores, percent, thresholds, nombre)
 
         st.download_button("Descargar Excel", excel, "resultado.xlsx")
         st.download_button("Descargar Word", word, "resultado.docx")
