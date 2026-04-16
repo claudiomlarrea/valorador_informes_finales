@@ -237,9 +237,6 @@ archivo = st.file_uploader("Subir informe", type=["pdf", "docx"])
 if archivo:
     texto = extract_text(archivo)
 
-    st.subheader("Texto extraído")
-    st.text_area("Contenido", texto, height=300)
-
     scores = auto_score(texto, keywords)
 
     df = pd.DataFrame(scores.items(), columns=["Criterio", "Puntaje"])
