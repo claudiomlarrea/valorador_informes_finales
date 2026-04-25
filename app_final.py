@@ -18,19 +18,18 @@ st.markdown("""
 }
 
 /* ARREGLO DEFINITIVO HEADER */
-.header-uccuyo h1,
-.header-uccuyo h2,
-.header-uccuyo h3 {
-    color: white !important;
-}
 
 /* TÍTULOS */
 
 /* TEXTO */
 .stApp p,
 .stApp label,
-.stApp span {
+.stApp span:not(.header-uccuyo span) {
     color: #1a1a1a;
+}
+.header-uccuyo,
+.header-uccuyo * {
+    color: white !important;
 }
 
 /* CAJA UPLOAD */
