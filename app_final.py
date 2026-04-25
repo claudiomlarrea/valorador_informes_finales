@@ -8,6 +8,56 @@ from docx.shared import Pt
 from datetime import datetime
 from openpyxl import Workbook
 st.set_page_config(layout="wide")
+st.markdown("""
+<style>
+
+/* FONDO GENERAL */
+.stApp {
+    background-color: #E6E6E6;
+}
+
+/* HEADER */
+.header-uccuyo h1,
+.header-uccuyo h2,
+.header-uccuyo h3 {
+    color: white !important;
+}
+
+/* TÍTULOS */
+h1, h2, h3, h4 {
+    color: #064a3f !important;
+}
+
+/* TEXTO */
+p, label, span {
+    color: black !important;
+}
+
+/* CAJA UPLOAD */
+[data-testid="stFileUploader"] {
+    background-color: white;
+    border-radius: 10px;
+    padding: 15px;
+}
+
+/* BOTONES */
+.stButton button,
+[data-testid="stDownloadButton"] button,
+[data-testid="stFileUploader"] button {
+    background-color: #064a3f !important;
+    color: white !important;
+    border-radius: 8px;
+    border: none;
+    font-weight: 600;
+}
+
+.stButton button:hover {
+    background-color: #0B6B5D !important;
+}
+
+</style>
+""", unsafe_allow_html=True)
+
 # ============================
 # CARGA DE RÚBRICA
 # ============================
@@ -230,12 +280,12 @@ def generate_word(scores, percent, thresholds, nombre_proyecto=""):
 # ============================
 
 st.markdown(
-"""<div class="header-uccuyo" style="background: linear-gradient(90deg, #0b5d4b, #177e6c); padding: 30px; border-radius: 15px; margin-bottom: 30px; width: 100%;">
+    """<div class="header-uccuyo" style="background: linear-gradient(90deg, #0b5d4b, #177e6c); padding: 30px; border-radius: 15px; margin: 0 auto 30px auto; max-width: 900px;">
 <h1 style="margin:0;">Universidad Católica de Cuyo</h1>
 <h2 style="margin-top:10px;">Secretaría de Investigación</h2>
 <h3 style="margin-top:5px;">Consejo de Investigación</h3>
 </div>""",
-unsafe_allow_html=True
+    unsafe_allow_html=True
 )
 
 st.title("📊 Valorador de Informes Finales")
