@@ -275,21 +275,23 @@ def generate_word(scores, percent, thresholds, nombre_proyecto=""):
 # ============================
 
 st.markdown(
-"""<div style="background: linear-gradient(90deg, #0b5d4b, #177e6c); padding: 30px; border-radius: 15px; margin: 0 auto 30px auto; max-width: 900px;">
+"""
+<div style="background: linear-gradient(90deg, #0b5d4b, #177e6c); padding: 30px; border-radius: 15px; margin: 0 auto 30px auto; max-width: 900px;">
 
-<h1 style="margin:0; font-size:40px; font-weight:700; color:white;">
+<h1 style="margin:0; font-size:40px; font-weight:700; color:white !important;">
 Universidad Católica de Cuyo
 </h1>
 
-<h2 style="margin-top:10px; font-size:22px; font-weight:500; color:white;">
+<h2 style="margin-top:10px; font-size:22px; font-weight:500; color:white !important;">
 Secretaría de Investigación
 </h2>
 
-<h3 style="margin-top:5px; font-size:18px; font-weight:400; color:#d6f2ec;">
+<h3 style="margin-top:5px; font-size:18px; font-weight:400; color:#d6f2ec !important;">
 Consejo de Investigación
 </h3>
 
-</div>""",
+</div>
+""",
 unsafe_allow_html=True
 )
 
