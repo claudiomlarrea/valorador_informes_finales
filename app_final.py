@@ -7,7 +7,7 @@ from docx import Document
 from docx.shared import Pt
 from datetime import datetime
 from openpyxl import Workbook
-
+st.set_page_config(layout="wide")
 # ============================
 # CARGA DE RÚBRICA
 # ============================
@@ -229,11 +229,7 @@ def generate_word(scores, percent, thresholds, nombre_proyecto=""):
 # ============================
 # INTERFAZ
 # ============================
-# ============================
-# INTERFAZ
-# ============================
 
-st.set_page_config(layout="wide")
 
 st.markdown(
     """
@@ -262,7 +258,6 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-st.title("📊 Valorador de Informes Finales")
 st.title("📊 Valorador de Informes Finales")
 
 archivo = st.file_uploader("Subir informe", type=["pdf", "docx"])
