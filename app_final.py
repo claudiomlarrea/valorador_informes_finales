@@ -21,19 +21,19 @@ st.markdown("""
 .header-uccuyo h1,
 .header-uccuyo h2,
 .header-uccuyo h3 {
-    color: white !important;
+    color: white;
 }
 
 /* TÍTULOS */
 .header-uccuyo h1,
 .header-uccuyo h2,
 .header-uccuyo h3 {
-    color: white !important;
+    color: white;
 }
 
 /* TEXTO */
 p, label, span {
-    color: black !important;
+    color: black;
 }
 
 /* CAJA UPLOAD */
