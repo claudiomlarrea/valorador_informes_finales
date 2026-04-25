@@ -24,8 +24,10 @@ st.markdown("""
 }
 
 /* TÍTULOS */
-h1, h2, h3, h4 {
-    color: #064a3f !important;
+.header-uccuyo h1,
+.header-uccuyo h2,
+.header-uccuyo h3 {
+    color: white !important;
 }
 
 /* TEXTO */
