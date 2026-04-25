@@ -34,6 +34,12 @@ st.markdown("""
     border-radius: 10px;
     padding: 15px;
 }
+/* 👇 ESTO AGREGÁS 👇 */
+.header-uccuyo h1,
+.header-uccuyo h2,
+.header-uccuyo h3 {
+    color: white !important;
+}
 
 /* BOTONES */
 .stButton button,
@@ -275,8 +281,7 @@ def generate_word(scores, percent, thresholds, nombre_proyecto=""):
 # ============================
 
 st.markdown(
-"""
-<div style="background: linear-gradient(90deg, #0b5d4b, #177e6c); padding: 30px; border-radius: 15px; margin: 0 auto 30px auto; max-width: 900px;">
+"""<div class="header-uccuyo" style="background: linear-gradient(90deg, #0b5d4b, #177e6c); padding: 30px; border-radius: 15px; margin: 0 auto 30px auto; max-width: 900px;">
 
 <h1 style="margin:0; font-size:40px; font-weight:700; color:white !important;">
 Universidad Católica de Cuyo
