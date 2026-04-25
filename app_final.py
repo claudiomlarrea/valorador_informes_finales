@@ -28,7 +28,7 @@ st.markdown("""
 
 /* TEXTO */
 p, label, span {
-    color: black;
+    color: #1a1a1a;
 }
 
 /* CAJA UPLOAD */
