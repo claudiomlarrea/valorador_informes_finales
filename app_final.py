@@ -18,17 +18,12 @@ st.markdown("""
 }
 
 /* HEADER */
-.header-uccuyo h1,
-.header-uccuyo h2,
-.header-uccuyo h3 {
-    color: #1a1a1a;
-}
 
 /* TÍTULOS */
 .header-uccuyo h1,
 .header-uccuyo h2,
 .header-uccuyo h3 {
-    color: #1a1a1a;
+    color: white !important;
 }
 
 /* TEXTO */
@@ -285,15 +280,15 @@ def generate_word(scores, percent, thresholds, nombre_proyecto=""):
 st.markdown(
 """<div class="header-uccuyo" style="background: linear-gradient(90deg, #0b5d4b, #177e6c); padding: 30px; border-radius: 15px; margin: 0 auto 30px auto; max-width: 900px;">
 
-<h1 style="color: #1a1a1a; margin:0; font-size:40px; font-weight:700;">
+<h1 style="color: white !important; margin:0; font-size:40px; font-weight:700;">
 Universidad Católica de Cuyo
 </h1>
 
-<h2 style="color: #1a1a1a; margin-top:10px; font-size:22px; font-weight:500;">
+<h2 style="color: white !important; margin-top:10px; font-size:22px; font-weight:500;">
 Secretaría de Investigación
 </h2>
 
-<h3 style="color: #1a1a1a; margin-top:5px; font-size:18px; font-weight:400;">
+<h3 style="color: #d6f2ec !important; margin-top:5px; font-size:18px; font-weight:400;">
 Consejo de Investigación
 </h3>
 
