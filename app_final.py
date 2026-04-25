@@ -17,7 +17,12 @@ st.markdown("""
     background-color: #E6E6E6;
 }
 
-/* HEADER */
+/* ARREGLO DEFINITIVO HEADER */
+.header-uccuyo h1,
+.header-uccuyo h2,
+.header-uccuyo h3 {
+    color: white !important;
+}
 
 /* TÍTULOS */
 
