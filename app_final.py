@@ -21,14 +21,14 @@ st.markdown("""
 .header-uccuyo h1,
 .header-uccuyo h2,
 .header-uccuyo h3 {
-    color: white;
+    color: #1a1a1a;
 }
 
 /* TÍTULOS */
 .header-uccuyo h1,
 .header-uccuyo h2,
 .header-uccuyo h3 {
-    color: white;
+    color: #1a1a1a;
 }
 
 /* TEXTO */
