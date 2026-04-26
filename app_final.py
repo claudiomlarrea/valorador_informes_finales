@@ -55,6 +55,17 @@ st.markdown("""
     border: none;
     font-weight: 600;
 }
+/* 🔥 TEXTO BLANCO REAL EN BOTONES */
+.stButton button *,
+[data-testid="stDownloadButton"] button *,
+[data-testid="stFileUploader"] button * {
+    color: white !important;
+}
+
+/* 🔥 FIX FINAL UPLOAD (ESTE ES EL QUE FALTABA) */
+[data-testid="stFileUploader"] * {
+    color: white !important;
+}
 
 .stButton button:hover {
     background-color: #0B6B5D !important;
