@@ -303,13 +303,7 @@ Consejo de Investigación
 """,
 unsafe_allow_html=True
 )
-/* 🔥 SOLUCIÓN DEFINITIVA UPLOAD */
-[data-testid="stFileUploader"] button,
-[data-testid="stFileUploader"] button span,
-[data-testid="stFileUploader"] button div,
-[data-testid="stFileUploader"] button p {
-    color: white !important;
-}
+
 st.title("📊 Valorador de Informes Finales")
 
 archivo = st.file_uploader("Subir informe", type=["pdf", "docx"])
