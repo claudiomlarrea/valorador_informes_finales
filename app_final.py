@@ -1,9 +1,8 @@
 # =============================================================================
 # Plantilla institucional UCCuyo (Streamlit) — checklist al portar otra repo:
-#   • _resolve_escudo_path (+ assets/escudo_uccuyo.png commitado) y/o URL en
-#     secrets/environment (UCC_ESCUDO_URL → HTTPS; st.image sí lo muestra).
-#   • Encabezado: st.container(horizontal=True, key=...) + st.image / markdown
-#   • CSS .st-key-… , .ucci-inst-banner-text , .ucci-main-title-card
+#   • assets/escudo_uccuyo.png en repo + URL raw pública GitHub (src del escudo en HTML)
+#   • Un solo HTML del banner (.ucci-inst-header) con fondo verde también en
+#     style="" (no depende de :has() ni del DOM de st.container horizontal).
 #   • .streamlit/config.toml [theme] (secondaryBackgroundColor del cargador)
 # =============================================================================
 import os
@@ -13,25 +12,15 @@ import pandas as pd
 import pdfplumber
 import yaml
 import io
-from pathlib import Path
 from docx import Document
 from docx.shared import Pt
 from datetime import datetime
 from openpyxl import Workbook
 
-_APP_DIR = Path(__file__).resolve().parent
-
-
-def _resolve_escudo_path() -> Path | None:
-    """Ruta del escudo si existe en assets/ (debe estar en el repo para Streamlit Cloud)."""
-    assets = _APP_DIR / "assets"
-    if not assets.is_dir():
-        return None
-    for name in ("escudo_uccuyo.png", "escudo_uccuyo.jpg", "escudo_uccuyo.jpeg"):
-        p = assets / name
-        if p.is_file():
-            return p
-    return None
+_DEFAULT_ESCUDO_HTTPS = (
+    "https://raw.githubusercontent.com/claudiomlarrea/valorador_informes_finales/"
+    "main/assets/escudo_uccuyo.png"
+)
 
 
 def _extras_escudo_url() -> str | None:
@@ -63,130 +52,123 @@ def _extras_escudo_url() -> str | None:
     return None
 
 
-def _resolved_escudo_for_st_image():
-    """Ruta local (repo) o URL para st.image."""
-    path = _resolve_escudo_path()
-    if path is not None:
-        return path
+def _banner_crest_markup() -> tuple[str, str]:
+    """Fragmento CSS + <img HTTPS> del escudo (evita data: … que suele sanitizar Markdown)."""
 
-    url = _extras_escudo_url()
-    if url:
-        return url
-
-    return None
+    extra_css = """
+    div.ucci-inst-header .ucci-inst-escudo-img {
+        display: block;
+        width: auto;
+        max-width: 104px;
+        max-height: 96px;
+        height: auto;
+        object-fit: contain;
+        background: rgba(255, 255, 255, 0.98);
+        border-radius: 10px;
+        padding: 0.35rem;
+        box-sizing: border-box;
+    }
+    """
+    src = (_extras_escudo_url() or "").strip() or _DEFAULT_ESCUDO_HTTPS
+    crest = (
+        f'<img class="ucci-inst-escudo-img" src="{src}" '
+        f'alt="Universidad Católica de Cuyo" loading="lazy" '
+        f'referrerpolicy="no-referrer" />'
+    )
+    return extra_css, crest
 
 
 st.set_page_config(layout="wide")
 
+_BANNER_CREST_CSS, _BANNER_CREST_HTML = _banner_crest_markup()
+
 st.markdown(
-    """
+    f"""
 <style>
-:root {
+:root {{
     --ucci-green: #00664d;
     --ucci-green-dark: #00523e;
     --ucci-accent: #28a745;
     --ucci-page-bg: #f0f2f6;
     --ucci-sidebar-bg: #262730;
     --ucci-text: #262730;
-}
+}}
 
-.stApp {
+.stApp {{
     background-color: var(--ucci-page-bg);
-}
+}}
 
-.block-container {
+.block-container {{
     padding-top: 1.25rem;
-}
+}}
 
-section[data-testid="stSidebar"] {
+section[data-testid="stSidebar"] {{
     background-color: var(--ucci-sidebar-bg);
-}
+}}
 [data-testid="stSidebar"] [data-testid="stMarkdown"],
 [data-testid="stSidebar"] span,
-[data-testid="stSidebar"] label {
+[data-testid="stSidebar"] label {{
     color: rgba(255, 255, 255, 0.92);
-}
+}}
 
-/* —— Banner institucional: logo con st.image + textos Markdown (clave contenedor horizontal) —— */
-/* Streamlit slug del key=\"ucci_inst_banner\" → clase st-key-ucci-inst-banner */
-div[data-testid="stVerticalBlockBorderWrapper"]:has([class*="st-key-ucci-inst-banner"]),
-div[data-testid="stVerticalBlockBorderWrapper"]:has([class*="st-key-ucci_inst_banner"]) {
-    background: var(--ucci-green) !important;
-    border-radius: 12px !important;
-    margin-bottom: 1.25rem !important;
-    padding: 0.85rem 1.35rem !important;
-    border: none !important;
-    box-sizing: border-box !important;
-}
-
-div[data-testid="stVerticalBlockBorderWrapper"]:has([class*="st-key-ucci-inst-banner"]) img,
-div[data-testid="stVerticalBlockBorderWrapper"]:has([class*="st-key-ucci_inst_banner"]) img {
-    display: block;
-    max-height: 96px;
-    width: auto !important;
-    max-width: 104px !important;
-    height: auto !important;
-    object-fit: contain;
-    background: rgba(255, 255, 255, 0.98);
-    border-radius: 10px;
-    padding: 0.35rem;
+/* Banner institucional: caja verde unificada (como Informes de avance) */
+.ucci-inst-header {{
+    display: flex;
+    align-items: center;
+    gap: 1.15rem;
     box-sizing: border-box;
-}
+    background-color: var(--ucci-green);
+    border-radius: 12px;
+    padding: 1rem 1.35rem;
+    margin-bottom: 1.25rem;
+}}
 
-[class*="st-key-ucci-inst-banner"],
-[class*="st-key-ucci_inst_banner"] {
-    min-width: 0;
-}
-
-.ucci-inst-banner-text {
+.ucci-inst-banner-text {{
     flex: 1 1 auto;
     min-width: 0;
-}
+}}
 
-.ucci-inst-banner-text,
-.ucci-inst-banner-text * {
+.ucci-inst-header .ucci-inst-banner-text,
+.ucci-inst-header .ucci-inst-banner-text * {{
     color: #ffffff !important;
-}
+}}
 
-.ucci-inst-banner-text a {
+.ucci-inst-header .ucci-inst-banner-text a {{
     color: #ffffff !important;
     text-decoration: underline dotted rgba(255, 255, 255, 0.55);
-}
-
-.ucci-inst-banner-text sup,
-.ucci-inst-banner-text code {
-    color: inherit !important;
-}
+}}
 
 .header-ucciuyo h1.ucci-banner-heading,
 .header-ucciuyo h2.ucci-banner-heading,
-.header-ucciuyo h3.ucci-banner-heading {
+.header-ucciuyo h3.ucci-banner-heading {{
     color: #ffffff !important;
     margin: 0;
     line-height: 1.2;
     font-family: "Source Sans Pro", ui-sans-serif, system-ui, sans-serif;
-}
+}}
 
-.header-ucciuyo h1.ucci-banner-heading {
+.header-ucciuyo h1.ucci-banner-heading {{
     font-size: clamp(1.35rem, 2.8vw, 1.95rem);
     font-weight: 700;
-}
+}}
 
-.header-ucciuyo h2.ucci-banner-heading {
+.header-ucciuyo h2.ucci-banner-heading {{
     margin-top: 0.5rem !important;
     font-size: clamp(1rem, 2vw, 1.22rem);
-    font-weight: 500;
-}
+    font-weight: 600;
+}}
 
-.header-ucciuyo h3.ucci-banner-heading {
+.header-ucciuyo h3.ucci-banner-heading {{
     margin-top: 0.3rem !important;
     font-size: clamp(0.85rem, 1.4vw, 1rem);
     font-weight: 400;
     color: rgba(255, 255, 255, 0.93) !important;
-}
+}}
+
+{_BANNER_CREST_CSS}
 
 /* Título de la app tipo tarjeta */
-.ucci-main-title-card {
+.ucci-main-title-card {{
     background: #ffffff;
     border-radius: 12px;
     padding: 1.1rem 1.35rem 1rem;
@@ -194,114 +176,114 @@ div[data-testid="stVerticalBlockBorderWrapper"]:has([class*="st-key-ucci_inst_ba
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.07);
     border: 1px solid rgba(0, 38, 28, 0.08);
     box-sizing: border-box;
-}
+}}
 
-.ucci-main-title-card h1.ucci-app-title {
+.ucci-main-title-card h1.ucci-app-title {{
     margin: 0 !important;
     padding: 0 !important;
     font-size: clamp(1.35rem, 2.6vw, 1.72rem);
     font-weight: 700;
     color: var(--ucci-text) !important;
-}
+}}
 
-.ucci-main-title-card p.ucci-app-subtitle {
+.ucci-main-title-card p.ucci-app-subtitle {{
     margin: 0.55rem 0 0 0 !important;
     font-size: 0.95rem;
     line-height: 1.45;
     color: #5f6368 !important;
-}
+}}
 
 /* Contenido general */
 h1:not(.ucci-banner-heading):not(.ucci-app-title),
 h2:not(.ucci-banner-heading),
 h3:not(.ucci-banner-heading),
-h4 {
+h4 {{
     color: var(--ucci-green-dark) !important;
-}
+}}
 p,
-label {
+label {{
     color: var(--ucci-text) !important;
-}
+}}
 
 /* Carga de archivo: tarjeta clara + franja oscura viene del tema (secondaryBackgroundColor) */
-[data-testid="stFileUploader"] {
+[data-testid="stFileUploader"] {{
     background-color: #ffffff !important;
     border-radius: 12px !important;
     padding: 0.95rem !important;
     border: 1px dashed rgba(0, 102, 77, 0.3) !important;
     margin-top: 0.15rem !important;
-}
+}}
 
 [data-testid="stFileUploader"] button[kind],
-[data-testid="stFileUploader"] button {
+[data-testid="stFileUploader"] button {{
     background-color: var(--ucci-green) !important;
     color: white !important;
     border-radius: 8px;
     border: none !important;
-}
+}}
 
-.stButton > button {
+.stButton > button {{
     background-color: var(--ucci-green) !important;
     color: white !important;
     border-radius: 8px;
     border: none;
     font-weight: 600;
-}
-.stButton > button:hover {
+}}
+.stButton > button:hover {{
     background-color: var(--ucci-green-dark) !important;
     border-color: transparent !important;
-}
+}}
 
-[data-testid="stDownloadButton"] button {
+[data-testid="stDownloadButton"] button {{
     background-color: var(--ucci-green) !important;
     color: white !important;
     border-radius: 8px;
     border: none;
     font-weight: 600;
-}
-[data-testid="stDownloadButton"] button:hover {
+}}
+[data-testid="stDownloadButton"] button:hover {{
     background-color: var(--ucci-green-dark) !important;
     border-color: transparent !important;
-}
+}}
 
-div[data-testid="stAlert"] {
+div[data-testid="stAlert"] {{
     border-radius: 10px;
-}
+}}
 
-[data-baseweb="slider"] {
+[data-baseweb="slider"] {{
     color: var(--ucci-green);
-}
+}}
 
 .stButton button span,
-[data-testid="stDownloadButton"] button span {
+[data-testid="stDownloadButton"] button span {{
     color: white !important;
-}
+}}
 
 .stButton > button,
-.stButton > button * {
+.stButton > button * {{
     color: white !important;
-}
+}}
 
 [data-testid="stDownloadButton"] button,
-[data-testid="stDownloadButton"] button * {
+[data-testid="stDownloadButton"] button * {{
     color: white !important;
-}
+}}
 
 [data-testid="stFileUploader"] button span,
 [data-testid="stFileUploader"] button div,
-[data-testid="stFileUploader"] button p {
+[data-testid="stFileUploader"] button p {{
     color: white !important;
-}
+}}
 
 .stSlider label,
 [data-testid="stTextInput"] label,
-[data-testid="stFileUploader"] label {
+[data-testid="stFileUploader"] label {{
     position: relative;
     padding-left: 1rem;
-}
+}}
 .stSlider label::before,
 [data-testid="stTextInput"] label::before,
-[data-testid="stFileUploader"] label::before {
+[data-testid="stFileUploader"] label::before {{
     content: "";
     position: absolute;
     left: 0;
@@ -310,7 +292,7 @@ div[data-testid="stAlert"] {
     height: 9px;
     border-radius: 50%;
     background: var(--ucci-accent);
-}
+}}
 </style>
 """,
     unsafe_allow_html=True,
@@ -537,28 +519,20 @@ def generate_word(scores, percent, thresholds, nombre_proyecto=""):
 # ============================
 # INTERFAZ
 # ============================
-_esc_img = _resolved_escudo_for_st_image()
-
-# Logo: st.image (archivo local o HTTPS). Markdown con <img data:…> suele filtrarlo el sanitizer de Streamlit.
-with st.container(
-    horizontal=True,
-    key="ucci_inst_banner",
-    horizontal_alignment="left",
-    vertical_alignment="center",
-    gap="small",
-):
-    if _esc_img is not None:
-        st.image(_esc_img, width=104, use_container_width=False)
-    st.markdown(
-        """
+# Encabezado unificado: franja verde explícita (no depende de :has() del layout de Streamlit).
+st.markdown(
+    f"""
+<div class="ucci-inst-header">
+{_BANNER_CREST_HTML}
 <div class="ucci-inst-banner-text header-ucciuyo">
 <h1 class="ucci-banner-heading">Universidad Católica de Cuyo</h1>
 <h2 class="ucci-banner-heading">Secretaría de Investigación</h2>
 <h3 class="ucci-banner-heading">Consejo de Investigación</h3>
 </div>
+</div>
 """,
-        unsafe_allow_html=True,
-    )
+    unsafe_allow_html=True,
+)
 
 st.markdown(
     """
