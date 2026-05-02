@@ -1,0 +1,113 @@
+weights:
+  identificacion_general: 5
+  cronograma: 5
+  objetivos: 15
+  metodologia: 10
+  resultados: 20
+  formacion_rrhh: 10
+  gestion: 5
+  dificultades: 5
+  transferencia: 10
+  calidad_formal: 10
+  impacto: 5
+
+thresholds:
+  aprobado: 60
+  aprobado_obs: 50
+
+keywords:
+
+  identificacion_general:
+    - denominación del proyecto
+    - director
+    - unidad académica
+    - resolución
+    - período informado
+    - presupuesto
+    - financiamiento
+
+  cronograma:
+    - cronograma
+    - actividades planificadas
+    - actividades ejecutadas
+    - porcentaje de avance
+    - "%"
+    - cumplimiento
+    - desvío
+    - avance
+
+  objetivos:
+    - objetivo
+    - objetivos
+    - cumplimiento
+    - logrado
+    - alcanzado
+    - parcialmente
+    - se cumplió
+    - "100 %"
+    - "50 %"
+
+  metodologia:
+    - metodología
+    - diseño del estudio
+    - variables
+    - análisis
+    - software
+    - validación
+    - limitaciones
+
+  resultados:
+    - resultados
+    - hallazgos
+    - análisis
+    - discusión
+    - evidencia
+    - datos
+    - tabla
+    - figura
+
+  formacion_rrhh:
+    - becario
+    - becaria
+    - tesis
+    - tesista
+    - estudiante
+    - formación
+
+  gestion:
+    - coordinación
+    - organización
+    - equipo de trabajo
+    - gestión
+
+  dificultades:
+    - dificultades
+    - limitaciones
+    - problemas
+    - desvíos
+    - estrategias
+
+  transferencia:
+    - publicación
+    - artículo
+    - congreso
+    - ponencia
+    - producto
+    - desarrollo
+    - empresa
+    - divulgación
+
+  calidad_formal:
+    - claridad
+    - coherencia
+    - redacción
+    - estructura
+    - citación
+    - bibliografía
+
+  impacto:
+    - impacto
+    - relevancia
+    - proyección
+    - aplicación
+    - continuidad
