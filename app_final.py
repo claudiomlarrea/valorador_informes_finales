@@ -82,8 +82,9 @@ st.set_page_config(layout="wide")
 
 _BANNER_CREST_CSS, _BANNER_CREST_HTML = _banner_crest_markup()
 
-st.markdown(
-    """
+# Llaves "{{" debajo son para interpolar después: sin .replace() Streamlit envía "{{" literal
+# y el CSS queda inválido (solo aplica tema config.toml → botón Browse blanco).
+_UCCI_STYLE_BLOCK = """
 <style>
 :root {{
     --ucci-green: #00664d;
@@ -228,7 +229,8 @@ label {{
 }}
 
 [data-testid="stBaseButton-primary"],
-[data-testid="stBaseButton-secondary"] {{
+[data-testid="stBaseButton-secondary"],
+[data-testid="stBaseButton-tertiary"] {{
     background-color: var(--ucci-green) !important;
     color: #ffffff !important;
     border-color: transparent !important;
@@ -237,7 +239,8 @@ label {{
     font-weight: 600 !important;
 }}
 [data-testid="stBaseButton-primary"]:hover,
-[data-testid="stBaseButton-secondary"]:hover {{
+[data-testid="stBaseButton-secondary"]:hover,
+[data-testid="stBaseButton-tertiary"]:hover {{
     background-color: var(--ucci-green-dark) !important;
     border-color: transparent !important;
     color: #ffffff !important;
@@ -247,13 +250,17 @@ label {{
 [data-testid="stBaseButton-primary"] span,
 [data-testid="stBaseButton-secondary"] p,
 [data-testid="stBaseButton-secondary"] span,
+[data-testid="stBaseButton-tertiary"] p,
+[data-testid="stBaseButton-tertiary"] span,
 [data-testid="stBaseButton-primary"] div,
-[data-testid="stBaseButton-secondary"] div {{
+[data-testid="stBaseButton-secondary"] div,
+[data-testid="stBaseButton-tertiary"] div {{
     color: #ffffff !important;
     -webkit-text-fill-color: #ffffff !important;
 }}
 [data-testid="stBaseButton-primary"] svg,
 [data-testid="stBaseButton-secondary"] svg,
+[data-testid="stBaseButton-tertiary"] svg,
 [data-testid="stFileUploader"] button svg {{
     fill: #ffffff !important;
     color: #ffffff !important;
@@ -322,7 +329,11 @@ div[data-testid="stAlert"] {{
     caret-color: var(--ucci-green-dark) !important;
 }}
 </style>
-""",
+"""
+st.markdown(
+    _UCCI_STYLE_BLOCK.replace("{{", "{")
+    .replace("}}", "}")
+    .replace("{_BANNER_CREST_CSS}", _BANNER_CREST_CSS),
     unsafe_allow_html=True,
 )
 
