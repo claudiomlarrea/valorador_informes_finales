@@ -89,7 +89,7 @@ st.markdown(
     --ucci-green: #00664d;
     --ucci-green-dark: #00523e;
     --ucci-accent: #28a745;
-    --ucci-page-bg: #f0f2f6;
+    --ucci-page-bg: #E6E6E6;
     --ucci-sidebar-bg: #262730;
     --ucci-text: #262730;
 }}
@@ -205,45 +205,82 @@ label {{
     color: var(--ucci-text) !important;
 }}
 
-/* Carga de archivo: tarjeta clara + franja oscura viene del tema (secondaryBackgroundColor) */
+/* Carga de archivos: franja oscura + CTA verde (alineado a informes de avance + Streamlit ≥1.37) */
 [data-testid="stFileUploader"] {{
-    background-color: #ffffff !important;
-    border-radius: 12px !important;
-    padding: 0.95rem !important;
-    border: 1px dashed rgba(0, 102, 77, 0.3) !important;
+    background-color: transparent !important;
+    border: none !important;
+    padding: 0 !important;
     margin-top: 0.15rem !important;
 }}
+[data-testid="stFileUploader"] section[data-testid="stFileUploaderDropzone"] {{
+    background-color: #1e1e1e !important;
+    border-radius: 12px !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    padding: 0.85rem 1rem !important;
+}}
+[data-testid="stFileUploaderDropzone"] label,
+[data-testid="stFileUploaderDropzone"] span,
+[data-testid="stFileUploaderDropzone"] p,
+[data-testid="stFileUploaderDropzone"] small,
+[data-testid="stFileUploader"] [data-testid="stMarkdownContainer"] p,
+[data-testid="stFileUploader"] [data-testid="stMarkdownContainer"] span {{
+    color: rgba(255, 255, 255, 0.92) !important;
+}}
 
-[data-testid="stFileUploader"] button[kind],
+[data-testid="stBaseButton-primary"],
+[data-testid="stBaseButton-secondary"] {{
+    background-color: var(--ucci-green) !important;
+    color: #ffffff !important;
+    border-color: transparent !important;
+    --text-color: #ffffff !important;
+    -webkit-text-fill-color: #ffffff !important;
+    font-weight: 600 !important;
+}}
+[data-testid="stBaseButton-primary"]:hover,
+[data-testid="stBaseButton-secondary"]:hover {{
+    background-color: var(--ucci-green-dark) !important;
+    border-color: transparent !important;
+    color: #ffffff !important;
+    --text-color: #ffffff !important;
+}}
+[data-testid="stBaseButton-primary"] p,
+[data-testid="stBaseButton-primary"] span,
+[data-testid="stBaseButton-secondary"] p,
+[data-testid="stBaseButton-secondary"] span,
+[data-testid="stBaseButton-primary"] div,
+[data-testid="stBaseButton-secondary"] div {{
+    color: #ffffff !important;
+    -webkit-text-fill-color: #ffffff !important;
+}}
+[data-testid="stBaseButton-primary"] svg,
+[data-testid="stBaseButton-secondary"] svg,
+[data-testid="stFileUploader"] button svg {{
+    fill: #ffffff !important;
+    color: #ffffff !important;
+}}
+
+.stButton > button,
+[data-testid="stDownloadButton"] button,
 [data-testid="stFileUploader"] button {{
     background-color: var(--ucci-green) !important;
-    color: white !important;
-    border-radius: 8px;
+    color: #ffffff !important;
+    border-radius: 8px !important;
     border: none !important;
+    font-weight: 600 !important;
+    --text-color: #ffffff !important;
+    -webkit-text-fill-color: #ffffff !important;
 }}
-
-.stButton > button {{
-    background-color: var(--ucci-green) !important;
-    color: white !important;
-    border-radius: 8px;
-    border: none;
-    font-weight: 600;
-}}
-.stButton > button:hover {{
+.stButton > button:hover,
+[data-testid="stDownloadButton"] button:hover,
+[data-testid="stFileUploader"] button:hover {{
     background-color: var(--ucci-green-dark) !important;
     border-color: transparent !important;
 }}
-
-[data-testid="stDownloadButton"] button {{
-    background-color: var(--ucci-green) !important;
-    color: white !important;
-    border-radius: 8px;
-    border: none;
-    font-weight: 600;
-}}
-[data-testid="stDownloadButton"] button:hover {{
-    background-color: var(--ucci-green-dark) !important;
-    border-color: transparent !important;
+.stButton > button *,
+[data-testid="stDownloadButton"] button *,
+[data-testid="stFileUploader"] button * {{
+    color: #ffffff !important;
+    -webkit-text-fill-color: #ffffff !important;
 }}
 
 div[data-testid="stAlert"] {{
@@ -254,35 +291,16 @@ div[data-testid="stAlert"] {{
     color: var(--ucci-green);
 }}
 
-.stButton button span,
-[data-testid="stDownloadButton"] button span {{
-    color: white !important;
-}}
-
-.stButton > button,
-.stButton > button * {{
-    color: white !important;
-}}
-
-[data-testid="stDownloadButton"] button,
-[data-testid="stDownloadButton"] button * {{
-    color: white !important;
-}}
-
-[data-testid="stFileUploader"] button span,
-[data-testid="stFileUploader"] button div,
-[data-testid="stFileUploader"] button p {{
-    color: white !important;
-}}
-
 .stSlider label,
 [data-testid="stTextInput"] label,
+[data-testid="stTextArea"] label,
 [data-testid="stFileUploader"] label {{
     position: relative;
     padding-left: 1rem;
 }}
 .stSlider label::before,
 [data-testid="stTextInput"] label::before,
+[data-testid="stTextArea"] label::before,
 [data-testid="stFileUploader"] label::before {{
     content: "";
     position: absolute;
@@ -295,11 +313,14 @@ div[data-testid="stAlert"] {{
 }}
 
 .stTextInput input,
-[data-testid="stTextInput"] input {
-    background-color: #1e1e1e !important;
-    color: #ffffff !important;
-    caret-color: #ffffff !important;
-}
+[data-testid="stTextInput"] input,
+[data-testid="stTextArea"] textarea {{
+    border-radius: 12px !important;
+    border: 1px solid rgba(0, 82, 62, 0.22) !important;
+    background-color: #ffffff !important;
+    color: var(--ucci-text) !important;
+    caret-color: var(--ucci-green-dark) !important;
+}}
 </style>
 """,
     unsafe_allow_html=True,
@@ -576,9 +597,13 @@ if archivo:
 
     nombre = st.text_input("Nombre del proyecto")
 
-    if st.button("Generar informe"):
+    if st.button("Generar informe", type="primary"):
         excel = generate_excel(scores, percent, thresholds)
         word = generate_word(scores, percent, thresholds, nombre)
 
-        st.download_button("Descargar Excel", excel, "resultado.xlsx")
-        st.download_button("Descargar Word", word, "resultado.docx")
+        st.download_button(
+            "Descargar Excel", excel, "resultado.xlsx", type="primary"
+        )
+        st.download_button(
+            "Descargar Word", word, "resultado.docx", type="primary"
+        )
