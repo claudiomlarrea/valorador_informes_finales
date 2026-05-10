@@ -1,3 +1,7 @@
+# Rúbrica — Anexo VI. Valorador de Informes Finales de Proyectos de Investigación (UCCuyo)
+# Escala por ítem: 0–4 (0=No evidenciado · 1=Bajo · 2=Medio · 3=Alto · 4=Muy alto)
+# Pesos y umbrales según documento institucional.
+
 weights:
   identificacion_general: 5
   cronograma: 5
@@ -15,16 +19,37 @@ thresholds:
   aprobado: 60
   aprobado_obs: 50
 
-keywords:
+# Nombres oficiales (Anexo VI) para UI y exportación
+labels:
+  identificacion_general: "Identificación general del proyecto"
+  cronograma: "Cumplimiento del cronograma"
+  objetivos: "Grado de cumplimiento de los objetivos"
+  metodologia: "Metodología"
+  resultados: "Resultados finales"
+  formacion_rrhh: "Formación de recursos humanos"
+  gestion: "Gestión del proyecto"
+  dificultades: "Dificultades y estrategias"
+  transferencia: "Difusión y transferencia"
+  calidad_formal: "Calidad formal del informe"
+  impacto: "Impacto y proyección"
 
+# Indicios por criterio (Instructivo Anexo III + Anexo VI). El automático mapea la
+# cobertura de indicios en el texto extraído a la escala 0–4 (ver app_final.py).
+keywords:
   identificacion_general:
     - denominación del proyecto
     - director
+    - codirector
     - unidad académica
     - resolución
+    - código
     - período informado
-    - presupuesto
     - financiamiento
+    - presupuesto
+    - ejecución presupuestaria
+    - equipo de trabajo
+    - auditoría
+    - rendición
 
   cronograma:
     - cronograma
@@ -34,37 +59,55 @@ keywords:
     - "%"
     - cumplimiento
     - desvío
-    - avance
+    - desvio
+    - justificación
+    - planificación
+    - etapa
+    - entregable
 
   objetivos:
-    - objetivo
-    - objetivos
+    - objetivo general
+    - objetivos específicos
+    - objetivos especificos
     - cumplimiento
     - logrado
     - alcanzado
     - parcialmente
+    - meta
+    - avance
     - se cumplió
-    - "100 %"
-    - "50 %"
 
   metodologia:
     - metodología
+    - metodologia
     - diseño del estudio
+    - diseño
     - variables
     - análisis
+    - analisis
+    - bases de datos
     - software
+    - spss
+    - atlas
     - validación
+    - validacion
+    - triangulación
     - limitaciones
+    - muestra
 
   resultados:
+    - resultados finales
     - resultados
     - hallazgos
-    - análisis
     - discusión
+    - discusion
     - evidencia
     - datos
     - tabla
     - figura
+    - cuantitativo
+    - cualitativo
+    - conclusión
 
   formacion_rrhh:
     - becario
@@ -73,41 +116,73 @@ keywords:
     - tesista
     - estudiante
     - formación
+    - formacion
+    - dirección de tesis
+    - recursos humanos
 
   gestion:
     - coordinación
+    - coordinacion
     - organización
+    - organizacion
     - equipo de trabajo
     - gestión
+    - gestion
+    - distribución de tareas
+    - presupuesto
+    - administración
+    - administracion
 
   dificultades:
     - dificultades
     - limitaciones
     - problemas
     - desvíos
+    - desvios
     - estrategias
+    - contingencias
+    - mitigación
+    - mitigacion
 
   transferencia:
     - publicación
+    - publicacion
     - artículo
+    - articulo
     - congreso
     - ponencia
+    - póster
+    - poster
     - producto
     - desarrollo
-    - empresa
     - divulgación
+    - divulgacion
+    - transferencia
+    - informe técnico
+    - prototipo
 
   calidad_formal:
     - claridad
     - coherencia
     - redacción
+    - redaccion
     - estructura
     - citación
+    - citacion
     - bibliografía
+    - bibliografia
+    - apa
+    - vancouver
+    - normas
 
   impacto:
     - impacto
     - relevancia
     - proyección
+    - proyeccion
     - aplicación
+    - aplicacion
     - continuidad
+    - valor agregado
+    - relevancia académica
+    - beneficio social

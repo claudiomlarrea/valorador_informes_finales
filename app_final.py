@@ -6,6 +6,7 @@
 #   • .streamlit/config.toml [theme] (secondaryBackgroundColor del cargador)
 # =============================================================================
 import os
+from pathlib import Path
 
 import streamlit as st
 import pandas as pd
@@ -16,6 +17,8 @@ from docx import Document
 from docx.shared import Pt
 from datetime import datetime
 from openpyxl import Workbook
+
+_APP_DIR = Path(__file__).resolve().parent
 
 _DEFAULT_ESCUDO_HTTPS = (
     "https://raw.githubusercontent.com/claudiomlarrea/valorador_informes_finales/"
@@ -219,15 +222,6 @@ label {{
     border: 1px solid rgba(255, 255, 255, 0.08) !important;
     padding: 0.85rem 1rem !important;
 }}
-[data-testid="stFileUploaderDropzone"] label,
-[data-testid="stFileUploaderDropzone"] span,
-[data-testid="stFileUploaderDropzone"] p,
-[data-testid="stFileUploaderDropzone"] small,
-[data-testid="stFileUploader"] [data-testid="stMarkdownContainer"] p,
-[data-testid="stFileUploader"] [data-testid="stMarkdownContainer"] span {{
-    color: rgba(255, 255, 255, 0.92) !important;
-}}
-
 [data-testid="stBaseButton-primary"],
 [data-testid="stBaseButton-secondary"],
 [data-testid="stBaseButton-tertiary"] {{
@@ -300,15 +294,13 @@ div[data-testid="stAlert"] {{
 
 .stSlider label,
 [data-testid="stTextInput"] label,
-[data-testid="stTextArea"] label,
-[data-testid="stFileUploader"] label {{
+[data-testid="stTextArea"] label {{
     position: relative;
     padding-left: 1rem;
 }}
 .stSlider label::before,
 [data-testid="stTextInput"] label::before,
-[data-testid="stTextArea"] label::before,
-[data-testid="stFileUploader"] label::before {{
+[data-testid="stTextArea"] label::before {{
     content: "";
     position: absolute;
     left: 0;
@@ -328,6 +320,36 @@ div[data-testid="stAlert"] {{
     color: var(--ucci-text) !important;
     caret-color: var(--ucci-green-dark) !important;
 }}
+
+/*
+ * Texto claro en la franja oscura sin usar "dropzone *" (evita leyendas blancas fuera del recuadro).
+ */
+/* Sin "p": si el markdown queda bajo el ancestro del uploader, Dropzone p blanco pisaba la leyenda. */
+[data-testid="stFileUploader"] section[data-testid="stFileUploaderDropzone"] span,
+[data-testid="stFileUploader"] section[data-testid="stFileUploaderDropzone"] small {{
+    color: rgba(255, 255, 255, 0.92) !important;
+    -webkit-text-fill-color: rgba(255, 255, 255, 0.92) !important;
+}}
+
+[data-testid="stFileUploader"] label,
+[data-testid="stFileUploader"] [data-testid="stWidgetLabel"],
+[data-testid="stFileUploader"] [data-testid="stWidgetLabel"] *,
+[data-testid="stFileUploader"] label[data-testid="stWidgetLabel"],
+[data-testid="stFileUploader"] label[data-testid="stWidgetLabel"] *,
+[data-testid="stFileUploader"] [data-baseweb="form-control-label"],
+[data-testid="stFileUploader"] [data-baseweb="form-control-label"] * {{
+    color: #111111 !important;
+    -webkit-text-fill-color: #111111 !important;
+}}
+
+[data-testid="stFileUploader"] section[data-testid="stFileUploaderDropzone"] button,
+[data-testid="stFileUploader"] section[data-testid="stFileUploaderDropzone"] button *,
+[data-testid="stFileUploader"] section[data-testid="stFileUploaderDropzone"] svg {{
+    color: #ffffff !important;
+    -webkit-text-fill-color: #ffffff !important;
+    fill: #ffffff !important;
+}}
+
 </style>
 """
 st.markdown(
@@ -338,164 +360,109 @@ st.markdown(
 )
 
 # ============================
-# CARGA DE RÚBRICA
+# CARGA DE RÚBRICA (Anexo VI)
 # ============================
-with open("rubric_final.yaml", "r", encoding="utf-8") as f:
+with open(_APP_DIR / "rubric_final.yaml", "r", encoding="utf-8") as f:
     config = yaml.safe_load(f)
 
 weights = config["weights"]
 thresholds = config["thresholds"]
 keywords = config["keywords"]
+labels = config.get("labels") or {}
+
+
+def criterion_label(key: str) -> str:
+    """Nombre oficial para tablas y exportación."""
+    return labels.get(key, key.replace("_", " ").title())
+
 
 # ============================
 # FUNCIONES
 # ============================
 
+
+def _docx_paragraphs_and_tables(doc: Document) -> str:
+    """Anexo III: gran parte del contenido está en tablas."""
+    parts: list[str] = []
+    for p in doc.paragraphs:
+        t = (p.text or "").strip()
+        if t:
+            parts.append(p.text)
+    for table in doc.tables:
+        for row in table.rows:
+            for cell in row.cells:
+                c = (cell.text or "").strip()
+                if c:
+                    parts.append(c)
+    return "\n".join(parts)
+
+
 def extract_text(file):
-    if file.name.endswith(".pdf"):
+    # Streamlit sólo revisa MIME al subir; el nombre puede llegar como .DOCX / .PDF
+    name_lc = (getattr(file, "name", None) or "").lower()
+    if name_lc.endswith(".pdf"):
         text = ""
         with pdfplumber.open(file) as pdf:
             for page in pdf.pages:
                 text += (page.extract_text() or "") + "\n"
         return text
 
-    elif file.name.endswith(".docx"):
+    if name_lc.endswith(".docx"):
         doc = Document(file)
-        return "\n".join([p.text for p in doc.paragraphs])
+        return _docx_paragraphs_and_tables(doc)
 
     return ""
 
 
-# 🔥 FUNCIÓN INSTITUCIONAL FINAL
 def auto_score(text, keywords_dict):
-    scores = {}
+    """
+    Escala 0–4 por criterio según proporción de indicios normativos presentes
+    en el texto (rubric_final.yaml). Coherente con ponderación Anexo VI.
+    """
     text_low = (text or "").lower()
-
-    # ============================
-    # DETECCIONES GLOBALES
-    # ============================
-
-    tiene_objetivos = "objetivo" in text_low
-    tiene_resultados = "resultado" in text_low
-    tiene_datos = "tabla" in text_low or "fig" in text_low or "datos" in text_low
-    tiene_porcentajes = "%" in text_low
-    tiene_transferencia = "publicación" in text_low or "congreso" in text_low
-    tiene_rrhh = "tesis" in text_low or "beca" in text_low
-
+    scores: dict[str, int] = {}
     for section, keys in keywords_dict.items():
-
-        found = sum(k in text_low for k in keys)
-
-        # BASE EXIGENTE
-        if found >= 6:
-            base = 4
-        elif found >= 4:
-            base = 3
-        elif found >= 2:
-            base = 2
-        elif found >= 1:
-            base = 1
+        keylist = [(k or "").strip() for k in keys if (k or "").strip()]
+        if not keylist:
+            scores[section] = 0
+            continue
+        hits = sum(1 for k in keylist if k.lower() in text_low)
+        ratio = hits / len(keylist)
+        if ratio >= 0.45:
+            scores[section] = 4
+        elif ratio >= 0.30:
+            scores[section] = 3
+        elif ratio >= 0.15:
+            scores[section] = 2
+        elif ratio > 0:
+            scores[section] = 1
         else:
-            base = 0
-
-        bonus = 0
-        penalty = 0
-
-        # OBJETIVOS
-        if section == "objetivos":
-            if tiene_porcentajes:
-                bonus += 1
-            if "cumpl" in text_low or "logr" in text_low:
-                bonus += 1
-            if not tiene_objetivos:
-                penalty += 3
-
-        # CRONOGRAMA
-        if section == "cronograma":
-            if tiene_porcentajes:
-                bonus += 1
-            else:
-                penalty += 3
-
-        # RESULTADOS
-        if section == "resultados":
-            if tiene_datos:
-                bonus += 1
-            else:
-                penalty += 3
-
-        # RRHH
-        if section == "formacion_rrhh":
-            if tiene_rrhh:
-                bonus += 1
-            else:
-                penalty += 3
-
-        # TRANSFERENCIA
-        if section == "transferencia":
-            if tiene_transferencia:
-                bonus += 1
-            else:
-                penalty += 3
-
-        # CALIDAD FORMAL
-        if section == "calidad_formal":
-            if "bibliografía" not in text_low and "citación" not in text_low:
-                penalty += 2
-
-        # IMPACTO
-        if section == "impacto":
-            if "impacto" not in text_low:
-                penalty += 2
-
-        # COHERENCIA GLOBAL
-        if tiene_objetivos and not tiene_resultados:
-            penalty += 3
-
-        if tiene_resultados and not tiene_datos:
-            penalty += 2
-
-        score = base + bonus - penalty
-        scores[section] = max(0, min(4, score))
-
+            scores[section] = 0
     return scores
 
 
 def weighted_score(scores, weights):
-    total = sum(scores[s] * weights[s] for s in scores)
-    max_total = sum(weights.values()) * 4
-
-    percent = (total / max_total) * 100
-
-    # PENALIZACIÓN GLOBAL
-    criterios_bajos = sum(1 for s in scores.values() if s <= 1)
-
-    if criterios_bajos >= 4:
-        percent -= 10
-
-    if criterios_bajos >= 6:
-        percent -= 15
-
-    # PROMEDIO GENERAL
-    promedio = sum(scores.values()) / len(scores)
-
-    if promedio < 1.5:
-        percent -= 15
-
-    return max(0, percent)
+    """Porcentaje según Anexo VI: suma ponderada sobre escala 0–4 (sin descuentos extra)."""
+    keys = set(scores) & set(weights)
+    if not keys:
+        return 0.0
+    total = sum(scores[s] * weights[s] for s in keys)
+    max_total = sum(weights[s] for s in keys) * 4
+    return (total / max_total) * 100 if max_total > 0 else 0.0
 
 
-def generate_excel(scores, percent, thresholds):
+def generate_excel(scores, percent, thresholds, label_fn=None):
+    label_fn = label_fn or (lambda k: str(k))
     wb = Workbook()
     ws = wb.active
     ws.title = "Resultados"
 
-    ws.append(["Criterio", "Puntaje"])
+    ws.append(["Criterio", "Puntaje (0–4)"])
     for k, v in scores.items():
-        ws.append([k, v])
+        ws.append([label_fn(k), v])
 
     ws.append([])
-    ws.append(["Total (%)", round(percent, 2)])
+    ws.append(["Puntaje total (%)", round(percent, 2)])
 
     if percent >= thresholds["aprobado"]:
         result = "Aprobado"
@@ -512,32 +479,33 @@ def generate_excel(scores, percent, thresholds):
     return output
 
 
-def generate_word(scores, percent, thresholds, nombre_proyecto=""):
+def generate_word(scores, percent, thresholds, nombre_proyecto="", label_fn=None):
+    label_fn = label_fn or (lambda k: str(k))
     doc = Document()
 
     style = doc.styles["Normal"]
     style.font.name = "Arial"
     style.font.size = Pt(11)
 
-    doc.add_heading("Valoración de Informe Final", 1)
+    doc.add_heading("UCCuyo — Valoración de Informe Final", 1)
     doc.add_paragraph(f"Fecha: {datetime.today().strftime('%Y-%m-%d %H:%M')}")
 
     if nombre_proyecto:
         doc.add_paragraph(f"Proyecto: {nombre_proyecto}")
 
-    doc.add_heading("Resultados", 2)
+    doc.add_heading("Resultados por criterio (Anexo VI)", 2)
 
     table = doc.add_table(rows=1, cols=2)
     hdr = table.rows[0].cells
     hdr[0].text = "Criterio"
-    hdr[1].text = "Puntaje"
+    hdr[1].text = "Puntaje (0–4)"
 
     for k, v in scores.items():
         row = table.add_row().cells
-        row[0].text = k
+        row[0].text = label_fn(k)
         row[1].text = str(v)
 
-    doc.add_paragraph(f"\nTotal: {round(percent, 2)}%")
+    doc.add_paragraph(f"\nCumplimiento ponderado: {round(percent, 2)}%")
 
     if percent >= thresholds["aprobado"]:
         result = "Aprobado"
@@ -548,6 +516,10 @@ def generate_word(scores, percent, thresholds, nombre_proyecto=""):
 
     doc.add_heading("Dictamen", 2)
     doc.add_paragraph(result)
+
+    doc.add_heading("Observaciones del evaluador", 2)
+    doc.add_paragraph("." * 78)
+    doc.add_paragraph("." * 78)
 
     output = io.BytesIO()
     doc.save(output)
@@ -583,34 +555,72 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-archivo = st.file_uploader("Cargar archivo", type=["pdf", "docx"])
+st.info("**Cargar archivo** — PDF o DOCX (hasta 200 MB por archivo). Usá el recuadro oscuro abajo.")
+archivo = st.file_uploader(
+    "Cargar archivo (PDF o DOCX)",
+    type=["pdf", "docx"],
+    label_visibility="collapsed",
+    key="upload_informe_final",
+)
 
 if archivo:
     texto = extract_text(archivo)
 
-    scores = auto_score(texto, keywords)
+    with st.expander("Ver texto extraído"):
+        st.text_area("Texto completo", texto, height=280)
 
-    df = pd.DataFrame(scores.items(), columns=["Criterio", "Puntaje"])
-    st.dataframe(df)
+    st.subheader("Evaluación automática")
+    auto_scores = auto_score(texto, keywords)
+    ordered_auto = {k: auto_scores[k] for k in weights}
 
-    percent = weighted_score(scores, weights)
+    df = pd.DataFrame(
+        [(criterion_label(k), v) for k, v in ordered_auto.items()],
+        columns=["Criterio", "Puntaje (0–4)"],
+    )
+    st.dataframe(df, use_container_width=True)
 
-    st.metric("Resultado (%)", round(percent, 2))
+    auto_percent = weighted_score(ordered_auto, weights)
+    st.metric("Puntaje automático inicial (%)", round(auto_percent, 2))
+    st.caption(
+        "Escala Anexo VI: ≥60 % aprobado; 50–59 % con observaciones; <50 % no aprobado."
+    )
 
-    if percent >= thresholds["aprobado"]:
-        resultado = "Aprobado"
-    elif percent >= thresholds["aprobado_obs"]:
-        resultado = "Aprobado con observaciones"
+    st.subheader("Ajuste manual (opcional)")
+    manual_scores: dict[str, int] = {}
+    for k in ordered_auto.keys():
+        manual_scores[k] = st.slider(
+            criterion_label(k),
+            0,
+            4,
+            int(ordered_auto[k]),
+            key=f"slider_{k}",
+        )
+
+    adjusted_percent = weighted_score(manual_scores, weights)
+    st.metric("Puntaje total ajustado (%)", round(adjusted_percent, 2))
+
+    if adjusted_percent >= thresholds["aprobado"]:
+        resultado = "✅ Aprobado"
+    elif adjusted_percent >= thresholds["aprobado_obs"]:
+        resultado = "⚠️ Aprobado con observaciones"
     else:
-        resultado = "No aprobado"
+        resultado = "❌ No aprobado"
 
-    st.success(f"Dictamen: {resultado}")
+    st.success(f"Dictamen (con ajuste manual): {resultado}")
 
-    nombre = st.text_input("Nombre del proyecto")
+    nombre = st.text_input("Nombre del proyecto (aparecerá en el Word):", "")
 
-    if st.button("Generar informe", type="primary"):
-        excel = generate_excel(scores, percent, thresholds)
-        word = generate_word(scores, percent, thresholds, nombre)
+    if st.button("Generar informes", type="primary"):
+        excel = generate_excel(
+            manual_scores, adjusted_percent, thresholds, label_fn=criterion_label
+        )
+        word = generate_word(
+            manual_scores,
+            adjusted_percent,
+            thresholds,
+            nombre,
+            label_fn=criterion_label,
+        )
 
         st.download_button(
             "Descargar Excel", excel, "resultado.xlsx", type="primary"
@@ -618,3 +628,5 @@ if archivo:
         st.download_button(
             "Descargar Word", word, "resultado.docx", type="primary"
         )
+
+        st.success("Informes generados con los puntajes ajustados.")

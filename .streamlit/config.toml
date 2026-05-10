@@ -1,7 +1,9 @@
 [theme]
 primaryColor = "#00664d"
 backgroundColor = "#E6E6E6"
-secondaryBackgroundColor = "#262730"
+# Claros: si es oscuro (#262730), Streamlit tiende a pintar labels de widgets (p. ej. file_uploader)
+# en color claro aunque el fondo real sea gris/blanco por CSS custom → leyendas ilegibles.
+secondaryBackgroundColor = "#FFFFFF"
 textColor = "#262730"
 font = "sans serif"
 
