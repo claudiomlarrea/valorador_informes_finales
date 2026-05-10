@@ -83,7 +83,7 @@ st.set_page_config(layout="wide")
 _BANNER_CREST_CSS, _BANNER_CREST_HTML = _banner_crest_markup()
 
 st.markdown(
-    f"""
+    """
 <style>
 :root {{
     --ucci-green: #00664d;
