@@ -293,6 +293,13 @@ div[data-testid="stAlert"] {{
     border-radius: 50%;
     background: var(--ucci-accent);
 }}
+
+.stTextInput input,
+[data-testid="stTextInput"] input {
+    background-color: #1e1e1e !important;
+    color: #ffffff !important;
+    caret-color: #ffffff !important;
+}
 </style>
 """,
     unsafe_allow_html=True,
